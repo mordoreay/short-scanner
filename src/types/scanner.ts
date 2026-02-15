@@ -382,9 +382,67 @@ export interface TranslationKeys {
   moderate: string;
   weak: string;
   
+  // Tooltip phrases
+  goodForShort: string;
+  badForShort: string;
+  neutralSignal: string;
+  overboughtShort: string;
+  oversoldShort: string;
+  bearishTrend: string;
+  bullishTrend: string;
+  bearishDiv: string;
+  bullishDiv: string;
+  noDiv: string;
+  fallingVol: string;
+  risingVol: string;
+  priceUpperBB: string;
+  priceLowerBB: string;
+  priceMidBB: string;
+  priceAboveVWAP: string;
+  priceBelowVWAP: string;
+  priceNearVWAP: string;
+  strongTrend: string;
+  weakTrend: string;
+  fakePumpDetected: string;
+  highVolatility: string;
+  lowVolatility: string;
+  mediumVolatility: string;
+  positiveFunding: string;
+  negativeFunding: string;
+  neutralFunding: string;
+  oiGrowing: string;
+  oiFalling: string;
+  oiNeutral: string;
+  strongBearishTrend: string;
+  bearishTrendGood: string;
+  strongBullishTrend: string;
+  bullishTrendBad: string;
+  mixedSignals: string;
+  optimalEntry: string;
+  goodEntry: string;
+  waitEntry: string;
+  bearishEMA: string;
+  bullishEMA: string;
+  bearish4H: string;
+  bullish4H: string;
+  noFakePump: string;
+  squeezeDetected: string;
+  
   // Errors
   noResults: string;
   scanError: string;
+  
+  // Trading Style
+  scalping: string;
+  dayTrading: string;
+  swing: string;
+  scalpingDesc: string;
+  dayTradingDesc: string;
+  swingDesc: string;
+  scalpingTime: string;
+  dayTradingTime: string;
+  swingTime: string;
+  tradingStyleInfo: string;
   
   // Links
   viewOnTradingView: string;

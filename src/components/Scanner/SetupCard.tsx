@@ -46,7 +46,8 @@ function determineTradingStyle(
   setupType: SetupType,
   indicators: Indicators,
   riskReward: number,
-  priceChange24h: number
+  priceChange24h: number,
+  t: TranslationKeys
 ): TradingStyleInfo {
   let scalpingScore = 0;
   let dayTradingScore = 0;
@@ -113,7 +114,6 @@ function determineTradingStyle(
   }
 
   // Determine winner
-  const total = scalpingScore + dayTradingScore + swingScore;
   let style: TradingStyle;
   
   if (scalpingScore >= dayTradingScore && scalpingScore >= swingScore) {
@@ -128,25 +128,25 @@ function determineTradingStyle(
   const styles: Record<TradingStyle, TradingStyleInfo> = {
     scalping: {
       style: 'scalping',
-      label: 'Скальпинг',
-      description: 'Быстрый вход/выход, высокие риски, краткосрочные цели',
-      holdTime: '15мин - 2ч',
+      label: t.scalping,
+      description: t.scalpingDesc,
+      holdTime: t.scalpingTime,
       color: 'bg-pink-500/20 text-pink-400 border-pink-500/50',
       icon: '⚡',
     },
     dayTrading: {
       style: 'dayTrading',
-      label: 'Дей-трейдинг',
-      description: 'Внутридневная торговля, средние цели, умеренные риски',
-      holdTime: '2ч - 1 день',
+      label: t.dayTrading,
+      description: t.dayTradingDesc,
+      holdTime: t.dayTradingTime,
       color: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
       icon: '📈',
     },
     swing: {
       style: 'swing',
-      label: 'Свинг',
-      description: 'Долгосрочная позиция, следование тренду, низкие риски',
-      holdTime: '1-7 дней',
+      label: t.swing,
+      description: t.swingDesc,
+      holdTime: t.swingTime,
       color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
       icon: '🎯',
     },
@@ -182,7 +182,8 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
     candidate.setup.type,
     candidate.setup.indicators,
     candidate.setup.riskReward,
-    candidate.priceChange24h
+    candidate.priceChange24h,
+    t
   );
 
   const getScoreColor = (score: number) => {
@@ -426,8 +427,7 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
                 <p className="text-xs">
-                  Стиль торговли определяется на основе типа сетапа, волатильности, 
-                  Multi-TF выравнивания и соотношения риск/прибыль.
+                  {t.tradingStyleInfo}
                 </p>
               </TooltipContent>
             </Tooltip>

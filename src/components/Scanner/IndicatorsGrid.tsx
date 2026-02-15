@@ -37,9 +37,8 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
   // Count bearish/bullish timeframes for Multi-TF (EXCLUDING 5m from scoring)
   const tf = indicators.multiTFAlignment.timeframes;
   const scoringTFs = [tf['15m'], tf['1h'], tf['2h'], tf['4h']];
-  const bearishCount = scoringTFs.filter(t => t === 'bearish').length;
-  const bullishCount = scoringTFs.filter(t => t === 'bullish').length;
-  const neutralCount = scoringTFs.filter(t => t === 'neutral').length;
+  const bearishCount = scoringTFs.filter(item => item === 'bearish').length;
+  const bullishCount = scoringTFs.filter(item => item === 'bullish').length;
 
   const indicatorItems = [
     // ========== OSCILLATORS: Number + Status ==========
@@ -50,7 +49,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.rsi.trend === 'oversold' 
           ? `${indicators.rsi.value.toFixed(0)} ${BAD}`
           : indicators.rsi.value.toFixed(0),
-      tooltip: `RSI: ${indicators.rsi.value.toFixed(1)} - ${indicators.rsi.trend === 'overbought' ? 'Перекуплен (>70) = хорошо для SHORT' : indicators.rsi.trend === 'oversold' ? 'Перепродан (<30) = плохо для SHORT' : 'Нейтрально'}`,
+      tooltip: `RSI: ${indicators.rsi.value.toFixed(1)} - ${indicators.rsi.trend === 'overbought' ? t.overboughtShort : indicators.rsi.trend === 'oversold' ? t.oversoldShort : t.neutralSignal}`,
       color: getShortColor(
         indicators.rsi.trend === 'overbought' ? true : 
         indicators.rsi.trend === 'oversold' ? false : null
@@ -63,7 +62,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.stochRsi.oversold 
           ? `${indicators.stochRsi.k.toFixed(0)} ${BAD}`
           : `${indicators.stochRsi.k.toFixed(0)}/${indicators.stochRsi.d.toFixed(0)}`,
-      tooltip: `StochRSI K: ${indicators.stochRsi.k.toFixed(1)}, D: ${indicators.stochRsi.d.toFixed(1)}. ${indicators.stochRsi.overbought ? 'Перекуплен = хорошо для SHORT' : indicators.stochRsi.oversold ? 'Перепродан = плохо для SHORT' : 'Нейтрально'}`,
+      tooltip: `StochRSI K: ${indicators.stochRsi.k.toFixed(1)}, D: ${indicators.stochRsi.d.toFixed(1)}. ${indicators.stochRsi.overbought ? t.overboughtShort : indicators.stochRsi.oversold ? t.oversoldShort : t.neutralSignal}`,
       color: getShortColor(
         indicators.stochRsi.overbought ? true :
         indicators.stochRsi.oversold ? false : null
@@ -78,7 +77,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.macd.trend === 'bullish' 
           ? 'NO' 
           : NEUTRAL,
-      tooltip: `MACD: ${indicators.macd.macd.toFixed(4)}, Signal: ${indicators.macd.signal.toFixed(4)}, Histogram: ${indicators.macd.histogram.toFixed(4)}\n${indicators.macd.trend === 'bearish' ? 'Медвежий тренд = хорошо для SHORT' : indicators.macd.trend === 'bullish' ? 'Бычий тренд = плохо для SHORT' : 'Нейтрально'}`,
+      tooltip: `MACD: ${indicators.macd.macd.toFixed(4)}, Signal: ${indicators.macd.signal.toFixed(4)}, Histogram: ${indicators.macd.histogram.toFixed(4)}\n${indicators.macd.trend === 'bearish' ? t.bearishTrend : indicators.macd.trend === 'bullish' ? t.bullishTrend : t.neutralSignal}`,
       color: getShortColor(
         indicators.macd.trend === 'bearish' ? true :
         indicators.macd.trend === 'bullish' ? false : null
@@ -91,7 +90,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.ema.trend === 'bullish' 
           ? 'NO' 
           : NEUTRAL,
-      tooltip: `EMA Trend: ${indicators.ema.trend}. EMA200 Distance: ${indicators.ema.ema200Distance > 0 ? '+' : ''}${indicators.ema.ema200Distance.toFixed(1)}%\n${indicators.ema.trend === 'bearish' ? 'Медвежье выравнивание EMA = хорошо для SHORT' : indicators.ema.trend === 'bullish' ? 'Бычье выравнивание = плохо для SHORT' : 'Нейтрально'}`,
+      tooltip: `EMA Trend: ${indicators.ema.trend}. EMA200 Distance: ${indicators.ema.ema200Distance > 0 ? '+' : ''}${indicators.ema.ema200Distance.toFixed(1)}%\n${indicators.ema.trend === 'bearish' ? t.bearishEMA : indicators.ema.trend === 'bullish' ? t.bullishEMA : t.neutralSignal}`,
       color: getShortColor(
         indicators.ema.trend === 'bearish' ? true :
         indicators.ema.trend === 'bullish' ? false : null
@@ -104,7 +103,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.fourHTrend.trend === 'bullish' 
           ? 'NO' 
           : NEUTRAL,
-      tooltip: `4H Trend: ${indicators.fourHTrend.trend} (${indicators.fourHTrend.strength})\n${indicators.fourHTrend.trend === 'bearish' ? 'Медвежий тренд на 4H = хорошо для SHORT' : indicators.fourHTrend.trend === 'bullish' ? 'Бычий тренд на 4H = плохо для SHORT' : 'Нейтрально'}`,
+      tooltip: `4H Trend: ${indicators.fourHTrend.trend} (${indicators.fourHTrend.strength})\n${indicators.fourHTrend.trend === 'bearish' ? t.bearish4H : indicators.fourHTrend.trend === 'bullish' ? t.bullish4H : t.neutralSignal}`,
       color: getShortColor(
         indicators.fourHTrend.trend === 'bearish' ? true :
         indicators.fourHTrend.trend === 'bullish' ? false : null
@@ -117,7 +116,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.obv.trend === 'bullish' 
           ? 'NO' 
           : NEUTRAL,
-      tooltip: `OBV Trend: ${indicators.obv.trend}. Divergence: ${indicators.obv.divergence || 'None'}\n${indicators.obv.trend === 'bearish' ? 'Падающий объём = хорошо для SHORT' : indicators.obv.trend === 'bullish' ? 'Растущий объём = плохо для SHORT' : 'Нейтрально'}`,
+      tooltip: `OBV Trend: ${indicators.obv.trend}. Divergence: ${indicators.obv.divergence || 'None'}\n${indicators.obv.trend === 'bearish' ? t.fallingVol : indicators.obv.trend === 'bullish' ? t.risingVol : t.neutralSignal}`,
       color: getShortColor(
         indicators.obv.trend === 'bearish' ? true :
         indicators.obv.trend === 'bullish' ? false : null
@@ -132,7 +131,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.rsiDivergence.type === 'bullish' 
           ? 'NO' 
           : NEUTRAL,
-      tooltip: `RSI Divergence: ${indicators.rsiDivergence.type} (${indicators.rsiDivergence.strength}). Confirmation: ${indicators.rsiDivergence.confirmation ? 'Yes' : 'No'}\n${indicators.rsiDivergence.type === 'bearish' ? 'Медвежья дивергенция = хорошо для SHORT' : indicators.rsiDivergence.type === 'bullish' ? 'Бычья дивергенция = плохо для SHORT' : 'Нет дивергенции'}`,
+      tooltip: `RSI Divergence: ${indicators.rsiDivergence.type} (${indicators.rsiDivergence.strength}). Confirmation: ${indicators.rsiDivergence.confirmation ? 'Yes' : 'No'}\n${indicators.rsiDivergence.type === 'bearish' ? t.bearishDiv : indicators.rsiDivergence.type === 'bullish' ? t.bullishDiv : t.noDiv}`,
       color: getShortColor(
         indicators.rsiDivergence.type === 'bearish' ? true :
         indicators.rsiDivergence.type === 'bullish' ? false : null
@@ -145,7 +144,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.macdDivergence.type === 'bullish' 
           ? 'NO' 
           : NEUTRAL,
-      tooltip: `MACD Divergence: ${indicators.macdDivergence.type} (${indicators.macdDivergence.strength})\n${indicators.macdDivergence.type === 'bearish' ? 'Медвежья дивергенция = хорошо для SHORT' : indicators.macdDivergence.type === 'bullish' ? 'Бычья дивергенция = плохо для SHORT' : 'Нет дивергенции'}`,
+      tooltip: `MACD Divergence: ${indicators.macdDivergence.type} (${indicators.macdDivergence.strength})\n${indicators.macdDivergence.type === 'bearish' ? t.bearishDiv : indicators.macdDivergence.type === 'bullish' ? t.bullishDiv : t.noDiv}`,
       color: getShortColor(
         indicators.macdDivergence.type === 'bearish' ? true :
         indicators.macdDivergence.type === 'bullish' ? false : null
@@ -160,7 +159,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.multiTFAlignment.direction === 'bullish'
           ? `${indicators.multiTFAlignment.score} NO`
           : `${indicators.multiTFAlignment.score} MIX`,
-      tooltip: `Multi-TF Alignment (Weighted):\n5m: ${tf['5m']} (display only)\n15m: ${tf['15m']} (10% weight)\n1h: ${tf['1h']} (20% weight)\n2h: ${tf['2h']} (30% weight)\n4h: ${tf['4h']} (40% weight)\n\nScore: ${indicators.multiTFAlignment.score}/100\n${bearishCount >= 3 ? 'Сильный медвежий тренд = отлично для SHORT' : bearishCount >= 2 ? 'Медвежий тренд = хорошо для SHORT' : bullishCount >= 3 ? 'Сильный бычий тренд = плохо для SHORT' : bullishCount >= 2 ? 'Бычий тренд = плохо для SHORT' : 'Смешанные сигналы'}`,
+      tooltip: `Multi-TF Alignment (Weighted):\n5m: ${tf['5m']} (display only)\n15m: ${tf['15m']} (10% weight)\n1h: ${tf['1h']} (20% weight)\n2h: ${tf['2h']} (30% weight)\n4h: ${tf['4h']} (40% weight)\n\nScore: ${indicators.multiTFAlignment.score}/100\n${bearishCount >= 3 ? t.strongBearishTrend : bearishCount >= 2 ? t.bearishTrendGood : bullishCount >= 3 ? t.strongBullishTrend : bullishCount >= 2 ? t.bullishTrendBad : t.mixedSignals}`,
       color: getShortColor(
         indicators.multiTFAlignment.direction === 'bearish' ? true :
         indicators.multiTFAlignment.direction === 'bullish' ? false : null
@@ -174,7 +173,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.entryTiming.signal === 'ready'
           ? `${indicators.entryTiming.score}`
           : `WAIT`,
-      tooltip: `Entry Timing (5m-based, NO impact on signal):\n5m RSI: ${indicators.entryTiming.rsi5m.toFixed(1)}\nQuality: ${indicators.entryTiming.quality}\nScore: ${indicators.entryTiming.score}/100\nMicro-div: ${indicators.entryTiming.divergence5m}\n\n${indicators.entryTiming.reason}\n\n${indicators.entryTiming.signal === 'enter_now' ? 'Оптимальный момент для входа!' : indicators.entryTiming.signal === 'ready' ? 'Хороший момент для входа' : 'Лучше подождать'}`,
+      tooltip: `Entry Timing (5m-based, NO impact on signal):\n5m RSI: ${indicators.entryTiming.rsi5m.toFixed(1)}\nQuality: ${indicators.entryTiming.quality}\nScore: ${indicators.entryTiming.score}/100\nMicro-div: ${indicators.entryTiming.divergence5m}\n\n${indicators.entryTiming.reason}\n\n${indicators.entryTiming.signal === 'enter_now' ? t.optimalEntry : indicators.entryTiming.signal === 'ready' ? t.goodEntry : t.waitEntry}`,
       color: indicators.entryTiming.signal === 'enter_now' 
         ? 'text-green-400 font-bold' 
         : indicators.entryTiming.signal === 'ready' 
@@ -190,7 +189,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.bollingerBands.position < 20 
           ? `<${indicators.bollingerBands.position.toFixed(0)}% ${BAD}`
           : `${indicators.bollingerBands.position.toFixed(0)}%`,
-      tooltip: `BB Position: ${indicators.bollingerBands.position.toFixed(1)}% within bands. ${indicators.bollingerBands.squeeze ? 'Squeeze detected!' : ''}\n${indicators.bollingerBands.position > 80 ? 'Цена у верхней полосы = хорошо для SHORT' : indicators.bollingerBands.position < 20 ? 'Цена у нижней полосы = плохо для SHORT' : 'Цена в середине полос'}`,
+      tooltip: `BB Position: ${indicators.bollingerBands.position.toFixed(1)}% within bands. ${indicators.bollingerBands.squeeze ? t.squeezeDetected : ''}\n${indicators.bollingerBands.position > 80 ? t.priceUpperBB : indicators.bollingerBands.position < 20 ? t.priceLowerBB : t.priceMidBB}`,
       color: getShortColor(
         indicators.bollingerBands.position > 80 ? true :
         indicators.bollingerBands.position < 20 ? false : null
@@ -203,7 +202,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.vwap.deviation < -3 
           ? `${indicators.vwap.deviation.toFixed(1)}% ${BAD}`
           : `${indicators.vwap.deviation > 0 ? '+' : ''}${indicators.vwap.deviation.toFixed(1)}%`,
-      tooltip: `VWAP Deviation: ${indicators.vwap.deviation.toFixed(2)}%\n${indicators.vwap.deviation > 3 ? 'Цена значительно выше VWAP = хорошо для SHORT' : indicators.vwap.deviation < -3 ? 'Цена значительно ниже VWAP = плохо для SHORT' : 'Цена близко к VWAP'}`,
+      tooltip: `VWAP Deviation: ${indicators.vwap.deviation.toFixed(2)}%\n${indicators.vwap.deviation > 3 ? t.priceAboveVWAP : indicators.vwap.deviation < -3 ? t.priceBelowVWAP : t.priceNearVWAP}`,
       color: getShortColor(
         indicators.vwap.deviation > 3 ? true :
         indicators.vwap.deviation < -3 ? false : null
@@ -216,7 +215,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
       value: indicators.adx.value > 25 
         ? `${indicators.adx.value.toFixed(0)} STRONG`
         : `${indicators.adx.value.toFixed(0)} WEAK`,
-      tooltip: `ADX: ${indicators.adx.value.toFixed(1)} (${indicators.adx.trend} trend). +DI: ${indicators.adx.plusDI.toFixed(1)}, -DI: ${indicators.adx.minusDI.toFixed(1)}\n${indicators.adx.value > 25 ? 'Сильный тренд = хорошая направленность' : 'Слабый тренд = отсутствие направления'}`,
+      tooltip: `ADX: ${indicators.adx.value.toFixed(1)} (${indicators.adx.trend} trend). +DI: ${indicators.adx.plusDI.toFixed(1)}, -DI: ${indicators.adx.minusDI.toFixed(1)}\n${indicators.adx.value > 25 ? t.strongTrend : t.weakTrend}`,
       color: indicators.adx.value > 25 ? 'text-orange-400' : 'text-muted-foreground',
     },
     {
@@ -225,8 +224,8 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         ? `${indicators.fakePump.confidence}% ${GOOD}`
         : NEUTRAL,
       tooltip: indicators.fakePump.isFake 
-        ? `Fake Pump Detected! Confidence: ${indicators.fakePump.confidence}%. ${indicators.fakePump.reason}\nФейковый памп = потенциальный разворот вниз = хорошо для SHORT`
-        : 'No fake pump signals detected',
+        ? `Fake Pump Detected! Confidence: ${indicators.fakePump.confidence}%. ${indicators.fakePump.reason}\n${t.fakePumpDetected}`
+        : t.noFakePump,
       color: getShortColor(indicators.fakePump.isFake ? true : null),
     },
     {
@@ -236,7 +235,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.atr.volatility === 'low'
           ? `${indicators.atr.percentage.toFixed(1)}% LOW`
           : `${indicators.atr.percentage.toFixed(1)}%`,
-      tooltip: `ATR: ${indicators.atr.value.toFixed(6)} (${indicators.atr.percentage.toFixed(2)}% of price). Volatility: ${indicators.atr.volatility}\n${indicators.atr.volatility === 'high' ? 'Высокая волатильность = больший риск, но и потенциал' : indicators.atr.volatility === 'low' ? 'Низкая волатильность = меньшее движение' : 'Средняя волатильность'}`,
+      tooltip: `ATR: ${indicators.atr.value.toFixed(6)} (${indicators.atr.percentage.toFixed(2)}% of price). Volatility: ${indicators.atr.volatility}\n${indicators.atr.volatility === 'high' ? t.highVolatility : indicators.atr.volatility === 'low' ? t.lowVolatility : t.mediumVolatility}`,
       color: indicators.atr.volatility === 'high' ? 'text-yellow-400' : 'text-muted-foreground',
     },
 
@@ -248,7 +247,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.fundingRate.signal === 'long'
           ? `${(indicators.fundingRate.rate * 100).toFixed(3)}% ${BAD}`
           : `${(indicators.fundingRate.rate * 100).toFixed(3)}%`,
-      tooltip: `Funding Rate: ${(indicators.fundingRate.rate * 100).toFixed(4)}%\nAnnualized: ${indicators.fundingRate.annualized.toFixed(1)}%\n${indicators.fundingRate.signal === 'short' ? 'Положительный фандинг = шортисты платят = толпа в шортах = хорошо для SHORT' : indicators.fundingRate.signal === 'long' ? 'Отрицательный фандинг = лонгисты платят = толпа в лонгах = плохо для SHORT' : 'Фандинг нейтральный'}`,
+      tooltip: `Funding Rate: ${(indicators.fundingRate.rate * 100).toFixed(4)}%\nAnnualized: ${indicators.fundingRate.annualized.toFixed(1)}%\n${indicators.fundingRate.signal === 'short' ? t.positiveFunding : indicators.fundingRate.signal === 'long' ? t.negativeFunding : t.neutralFunding}`,
       color: getShortColor(
         indicators.fundingRate.signal === 'short' ? true :
         indicators.fundingRate.signal === 'long' ? false : null
@@ -261,7 +260,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.openInterest.interpretation === 'bullish'
           ? `${indicators.openInterest.change24h > 0 ? '+' : ''}${indicators.openInterest.change24h.toFixed(0)}% ${BAD}`
           : `${indicators.openInterest.change24h > 0 ? '+' : ''}${indicators.openInterest.change24h.toFixed(0)}%`,
-      tooltip: `Open Interest: $${(indicators.openInterest.value / 1000000).toFixed(1)}M\nChange 24h: ${indicators.openInterest.change24h.toFixed(1)}%\n${indicators.openInterest.interpretation === 'bearish' ? 'OI растёт при падении цены = новые шорты = хорошо для SHORT' : indicators.openInterest.interpretation === 'bullish' ? 'OI падает при падении цены = шорты закрываются = плохо для SHORT' : 'OI нейтрален'}`,
+      tooltip: `Open Interest: $${(indicators.openInterest.value / 1000000).toFixed(1)}M\nChange 24h: ${indicators.openInterest.change24h.toFixed(1)}%\n${indicators.openInterest.interpretation === 'bearish' ? t.oiGrowing : indicators.openInterest.interpretation === 'bullish' ? t.oiFalling : t.oiNeutral}`,
       color: getShortColor(
         indicators.openInterest.interpretation === 'bearish' ? true :
         indicators.openInterest.interpretation === 'bullish' ? false : null
@@ -281,7 +280,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
               </div>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs">
-              <p className="text-xs">{item.tooltip}</p>
+              <p className="text-xs whitespace-pre-line">{item.tooltip}</p>
             </TooltipContent>
           </Tooltip>
         ))}
