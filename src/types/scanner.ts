@@ -321,6 +321,7 @@ export interface TranslationKeys {
   minPriceChange: string;
   onlyRsiDivergence: string;
   hideFakePump: string;
+  hideSkipSetups: string;
   
   // Progress
   analyzing: string;

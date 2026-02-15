@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ScannerControlsProps {
   language: Language;
@@ -19,9 +20,11 @@ interface ScannerControlsProps {
   sortBy: SortOption;
   filters: ScannerFilters;
   isScanning: boolean;
+  hideSkip: boolean;
   onExchangeChange: (exchange: Exchange) => void;
   onSortChange: (sort: SortOption) => void;
   onFiltersChange: (filters: ScannerFilters) => void;
+  onHideSkipChange: (hide: boolean) => void;
   onScan: () => void;
   progress: number;
   progressMessage: string;
@@ -33,9 +36,11 @@ export function ScannerControls({
   sortBy,
   filters,
   isScanning,
+  hideSkip,
   onExchangeChange,
   onSortChange,
   onScan,
+  onHideSkipChange,
   progress,
   progressMessage,
 }: ScannerControlsProps) {
@@ -110,6 +115,18 @@ export function ScannerControls({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Hide Skip Checkbox */}
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="hideSkip"
+            checked={hideSkip}
+            onCheckedChange={(checked) => onHideSkipChange(checked as boolean)}
+          />
+          <Label htmlFor="hideSkip" className="text-sm text-muted-foreground cursor-pointer">
+            {t.hideSkipSetups}
+          </Label>
         </div>
       </div>
 

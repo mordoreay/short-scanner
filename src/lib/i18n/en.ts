@@ -26,6 +26,7 @@ export const en: TranslationKeys = {
   minPriceChange: 'Min Price Change',
   onlyRsiDivergence: 'Only with RSI Divergence',
   hideFakePump: 'Hide Fake Pump',
+  hideSkipSetups: 'Hide "Skip"',
   
   // Progress
   analyzing: 'Analyzing',

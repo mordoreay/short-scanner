@@ -17,6 +17,7 @@ export default function Home() {
   // Scanner state
   const [exchange, setExchange] = useState<Exchange>('bybit');
   const [sortBy, setSortBy] = useState<SortOption>('confidence');
+  const [hideSkip, setHideSkip] = useState(true);
   const [filters, setFilters] = useState<ScannerFilters>({
     minConfidence: 0,
     minPriceChange: 15,
@@ -93,9 +94,17 @@ export default function Home() {
     }
   }, [exchange, sortBy, filters, language, t]);
 
-  // Sort candidates on client side when sortBy changes
+  // Sort and filter candidates
   const sortedCandidates = useMemo(() => {
-    return [...candidates].sort((a, b) => {
+    let filtered = [...candidates];
+    
+    // Filter out skip recommendations if enabled
+    if (hideSkip) {
+      filtered = filtered.filter(c => c.recommendation !== 'skip');
+    }
+    
+    // Sort
+    return filtered.sort((a, b) => {
       switch (sortBy) {
         case 'confidence':
           return b.setup.confidence - a.setup.confidence;
@@ -111,7 +120,7 @@ export default function Home() {
           return b.shortScore.total - a.shortScore.total;
       }
     });
-  }, [candidates, sortBy]);
+  }, [candidates, sortBy, hideSkip]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -154,9 +163,11 @@ export default function Home() {
           sortBy={sortBy}
           filters={filters}
           isScanning={isScanning}
+          hideSkip={hideSkip}
           onExchangeChange={setExchange}
           onSortChange={setSortBy}
           onFiltersChange={setFilters}
+          onHideSkipChange={setHideSkip}
           onScan={handleScan}
           progress={progress}
           progressMessage={progressMessage}
