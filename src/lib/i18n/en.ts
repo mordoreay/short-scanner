@@ -147,7 +147,6 @@ export const en: TranslationKeys = {
   scalpingTime: '15min - 2h',
   dayTradingTime: '2h - 1 day',
   swingTime: '1-7 days',
-  tradingStyleInfo: 'Trading style is determined by setup type, volatility, Multi-TF alignment and risk/reward ratio.',
   
   // Links
   viewOnTradingView: 'View on TradingView',

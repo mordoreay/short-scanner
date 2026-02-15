@@ -442,7 +442,6 @@ export interface TranslationKeys {
   scalpingTime: string;
   dayTradingTime: string;
   swingTime: string;
-  tradingStyleInfo: string;
   
   // Links
   viewOnTradingView: string;

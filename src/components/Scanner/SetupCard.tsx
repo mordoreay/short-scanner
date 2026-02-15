@@ -275,7 +275,7 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Setup Type & Recommendation */}
+        {/* Setup Type, Trading Style & Recommendation */}
         <div className="flex flex-wrap gap-2">
           <TooltipProvider>
             <Tooltip>
@@ -286,6 +286,19 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
                 <p className="text-sm">{candidate.setup.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge className={tradingStyle.color}>
+                  {tradingStyle.icon} {tradingStyle.label}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="text-sm">{tradingStyle.description}</p>
+                <p className="text-xs text-muted-foreground mt-1">⏱ {tradingStyle.holdTime}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -400,38 +413,6 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
               </Tooltip>
             </TooltipProvider>
           </div>
-        </div>
-
-        {/* Trading Style */}
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/50">
-          <div className="text-2xl">{tradingStyle.icon}</div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <Badge className={tradingStyle.color}>
-                {tradingStyle.label}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                ⏱ {tradingStyle.holdTime}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {tradingStyle.description}
-            </p>
-          </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-xs text-muted-foreground cursor-help">
-                  ℹ️
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="text-xs">
-                  {t.tradingStyleInfo}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
         </div>
 
         {/* Indicators Grid */}

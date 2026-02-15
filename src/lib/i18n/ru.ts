@@ -147,7 +147,6 @@ export const ru: TranslationKeys = {
   scalpingTime: '15мин - 2ч',
   dayTradingTime: '2ч - 1 день',
   swingTime: '1-7 дней',
-  tradingStyleInfo: 'Стиль торговли определяется на основе типа сетапа, волатильности, Multi-TF выравнивания и соотношения риск/прибыль.',
   
   // Links
   viewOnTradingView: 'Открыть в TradingView',
