@@ -12,6 +12,9 @@ export class BinanceAPI implements ExchangeAPI {
     try {
       // Get 24hr ticker for all symbols
       const response = await fetch(`${this.baseUrl}/fapi/v1/ticker/24hr`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; SHORTScanner/2.1)',
+        },
         next: { revalidate: 60 }
       });
       
@@ -22,9 +25,10 @@ export class BinanceAPI implements ExchangeAPI {
       const data = await response.json();
       
       return data
-        .filter((item: { symbol: string; contractType?: string }) => 
+        .filter((item: { symbol: string }) => 
+          // Filter for USDT perpetuals (symbol ends with USDT, no hyphen)
           item.symbol.endsWith('USDT') && 
-          (!item.contractType || item.contractType === 'PERPETUAL')
+          !item.symbol.includes('_')
         )
         .map((item: {
           symbol: string;
@@ -63,7 +67,12 @@ export class BinanceAPI implements ExchangeAPI {
     try {
       const response = await fetch(
         `${this.baseUrl}/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`,
-        { next: { revalidate: 30 } }
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; SHORTScanner/2.1)',
+          },
+          next: { revalidate: 30 }
+        }
       );
 
       if (!response.ok) {
@@ -99,7 +108,12 @@ export class BinanceAPI implements ExchangeAPI {
     try {
       const response = await fetch(
         `${this.baseUrl}/fapi/v1/fundingRate?symbol=${symbol}&limit=1`,
-        { next: { revalidate: 60 } }
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; SHORTScanner/2.1)',
+          },
+          next: { revalidate: 60 }
+        }
       );
 
       const data = await response.json();
@@ -124,7 +138,12 @@ export class BinanceAPI implements ExchangeAPI {
       // Get current open interest
       const response = await fetch(
         `${this.baseUrl}/fapi/v1/openInterest?symbol=${symbol}`,
-        { next: { revalidate: 60 } }
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; SHORTScanner/2.1)',
+          },
+          next: { revalidate: 60 }
+        }
       );
 
       const data = await response.json();

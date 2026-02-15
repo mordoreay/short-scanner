@@ -154,4 +154,14 @@ export const ru: TranslationKeys = {
   viewOnBinance: 'Открыть в Binance',
   viewOnBybit: 'Открыть в Bybit',
   viewOnOKX: 'Открыть в OKX',
+
+  // Time
+  lastScanTime: 'Время последнего сканирования',
+
+  // SHORT Score tooltips
+  trendTooltip: 'EMA выравнивание + 4H тренд + ADX сила',
+  momentumTooltip: 'RSI перекупленность + MACD + StochRSI',
+  volatilityTooltip: 'BB позиция + ATR + VWAP отклонение',
+  volumeTooltip: 'OBV тренд и дивергенция объёма',
+  divergenceTooltip: 'RSI и MACD дивергенции',
 };

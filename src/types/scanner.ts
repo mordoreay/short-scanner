@@ -449,4 +449,14 @@ export interface TranslationKeys {
   viewOnBinance: string;
   viewOnBybit: string;
   viewOnOKX: string;
+
+  // Time
+  lastScanTime: string;
+
+  // SHORT Score tooltips
+  trendTooltip: string;
+  momentumTooltip: string;
+  volatilityTooltip: string;
+  volumeTooltip: string;
+  divergenceTooltip: string;
 }

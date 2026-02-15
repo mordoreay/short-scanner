@@ -154,4 +154,14 @@ export const en: TranslationKeys = {
   viewOnBinance: 'View on Binance',
   viewOnBybit: 'View on Bybit',
   viewOnOKX: 'View on OKX',
+
+  // Time
+  lastScanTime: 'Last scan time',
+
+  // SHORT Score tooltips
+  trendTooltip: 'EMA alignment + 4H trend + ADX strength',
+  momentumTooltip: 'RSI overbought + MACD + StochRSI',
+  volatilityTooltip: 'BB position + ATR + VWAP deviation',
+  volumeTooltip: 'OBV trend and volume divergence',
+  divergenceTooltip: 'RSI and MACD divergences',
 };

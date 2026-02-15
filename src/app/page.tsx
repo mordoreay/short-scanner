@@ -8,6 +8,12 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { ScannerControls } from '@/components/Scanner/ScannerControls';
 import { SetupCard } from '@/components/Scanner/SetupCard';
 import { Card } from '@/components/ui/card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export default function Home() {
   // Language state
@@ -138,15 +144,23 @@ export default function Home() {
                 <h1 className="text-xl font-bold gradient-text">{t.title}</h1>
                 <p className="text-xs text-muted-foreground">{t.subtitle}</p>
               </div>
-              <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">v2.0</span>
             </div>
             
             <div className="flex items-center gap-3">
-              {lastScanTime && (
-                <span className="text-xs text-muted-foreground hidden md:block">
-                  {new Date(lastScanTime).toLocaleTimeString()}
-                </span>
-              )}
+              <TooltipProvider>
+                {lastScanTime && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs text-muted-foreground hidden md:block">
+                        {new Date(lastScanTime).toLocaleTimeString()}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">{t.lastScanTime}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </TooltipProvider>
               <LanguageSelector language={language} onLanguageChange={setLanguage} />
               <ThemeToggle />
             </div>
@@ -237,7 +251,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
-              <span>SHORT Scanner v2.0</span>
+              <span>SHORT Scanner</span>
               <span className="text-border">|</span>
               <span>{language === 'ru' ? 'Данные с бирж в реальном времени' : language === 'en' ? 'Real-time exchange data' : '实时交易所数据'}</span>
             </div>

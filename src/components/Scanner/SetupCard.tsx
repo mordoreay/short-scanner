@@ -186,10 +186,30 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
     t
   );
 
-  const getScoreColor = (score: number) => {
-    if (score >= 60) return 'text-green-400';
-    if (score >= 40) return 'text-yellow-400';
+  // Score colors based on percentage of category maximum
+  // Trend: max 10, Momentum: max 30, Volatility: max 20, Volume: max 10, Divergence: max 15
+  const getScoreColor = (score: number, max: number = 100) => {
+    const percent = (score / max) * 100;
+    if (percent >= 60) return 'text-green-400';
+    if (percent >= 30) return 'text-yellow-400';
     return 'text-red-400';
+  };
+
+  // Score quality text for tooltips
+  const getScoreQuality = (score: number, max: number, t: TranslationKeys): { text: string; isGood: boolean | null } => {
+    const percent = (score / max) * 100;
+    if (percent >= 60) return { text: t.goodForShort, isGood: true };
+    if (percent >= 30) return { text: t.neutralSignal, isGood: null };
+    return { text: t.badForShort, isGood: false };
+  };
+
+  // Category maximums (from shortScore.ts)
+  const categoryMax = {
+    trend: 10,
+    momentum: 30,
+    volatility: 20,
+    volume: 10,
+    divergence: 15,
   };
 
   const getScoreBg = (score: number) => {
@@ -347,12 +367,13 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="text-center p-1.5 rounded bg-secondary">
-                    <div className={getScoreColor(candidate.shortScore.trend)}>{candidate.shortScore.trend}</div>
+                    <div className={getScoreColor(candidate.shortScore.trend, categoryMax.trend)}>{candidate.shortScore.trend}</div>
                     <div className="text-muted-foreground">{t.trend}</div>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Trend analysis: EMA alignment, 4H trend, ADX strength</p>
+                  <p className="text-xs">{t.trendTooltip}</p>
+                  <p className="text-xs">{getScoreQuality(candidate.shortScore.trend, categoryMax.trend, t).text}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -361,12 +382,13 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="text-center p-1.5 rounded bg-secondary">
-                    <div className={getScoreColor(candidate.shortScore.momentum)}>{candidate.shortScore.momentum}</div>
+                    <div className={getScoreColor(candidate.shortScore.momentum, categoryMax.momentum)}>{candidate.shortScore.momentum}</div>
                     <div className="text-muted-foreground">{t.momentum}</div>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Momentum: RSI, MACD, StochRSI analysis</p>
+                  <p className="text-xs">{t.momentumTooltip}</p>
+                  <p className="text-xs">{getScoreQuality(candidate.shortScore.momentum, categoryMax.momentum, t).text}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -375,12 +397,13 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="text-center p-1.5 rounded bg-secondary">
-                    <div className={getScoreColor(candidate.shortScore.volatility)}>{candidate.shortScore.volatility}</div>
+                    <div className={getScoreColor(candidate.shortScore.volatility, categoryMax.volatility)}>{candidate.shortScore.volatility}</div>
                     <div className="text-muted-foreground">{t.volatility}</div>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Volatility: Bollinger Bands, ATR, VWAP deviation</p>
+                  <p className="text-xs">{t.volatilityTooltip}</p>
+                  <p className="text-xs">{getScoreQuality(candidate.shortScore.volatility, categoryMax.volatility, t).text}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -389,12 +412,13 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="text-center p-1.5 rounded bg-secondary">
-                    <div className={getScoreColor(candidate.shortScore.volume)}>{candidate.shortScore.volume}</div>
+                    <div className={getScoreColor(candidate.shortScore.volume, categoryMax.volume)}>{candidate.shortScore.volume}</div>
                     <div className="text-muted-foreground">{t.volumeScore}</div>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Volume: OBV trend and divergence analysis</p>
+                  <p className="text-xs">{t.volumeTooltip}</p>
+                  <p className="text-xs">{getScoreQuality(candidate.shortScore.volume, categoryMax.volume, t).text}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -403,12 +427,13 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="text-center p-1.5 rounded bg-secondary">
-                    <div className={getScoreColor(candidate.shortScore.divergence)}>{candidate.shortScore.divergence}</div>
+                    <div className={getScoreColor(candidate.shortScore.divergence, categoryMax.divergence)}>{candidate.shortScore.divergence}</div>
                     <div className="text-muted-foreground">{t.divergenceScore}</div>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Divergence: RSI and MACD divergence detection</p>
+                  <p className="text-xs">{t.divergenceTooltip}</p>
+                  <p className="text-xs">{getScoreQuality(candidate.shortScore.divergence, categoryMax.divergence, t).text}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
