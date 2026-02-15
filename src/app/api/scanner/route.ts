@@ -488,7 +488,12 @@ function generateAnalysis(
 
 /**
  * Calculate entry zone, stop loss, and take profits
- * v2.0 - Adaptive calculation based on setup type and market structure
+ * v2.1 - Improved calculation for better R:R ratios
+ * 
+ * Main timeframe for analysis: 1H (candles1h)
+ * Entry zone width: Based on ATR and volatility
+ * Stop Loss: Minimum 2ATR from entry, behind key resistance
+ * Take Profit: Based on market structure levels
  */
 function calculateTradeLevels(
   currentPrice: number,
@@ -509,8 +514,8 @@ function calculateTradeLevels(
   breakevenSL: number;
   breakevenInfo: string;
 } {
-  // ==================== ADAPTIVE ENTRY ZONE ====================
-  // Based on volatility (ATR) and BB position
+  // ==================== SMART ENTRY ZONE ====================
+  // For SHORT: Enter at current price or slightly higher (pullback)
   
   const bbPosition = indicators.bollingerBands.position;
   const bbUpper = indicators.bollingerBands.upper;
@@ -520,9 +525,8 @@ function calculateTradeLevels(
   const ema50 = indicators.ema.ema50;
   const vwap = indicators.vwap.value;
   
-  // Entry zone width: ATR × 0.5 for normal, ATR × 1 for volatile
-  const volatilityMultiplier = indicators.atr.volatility === 'high' ? 1 : 0.5;
-  const entryWidth = atr * volatilityMultiplier;
+  // Minimum entry zone width: 1% of price or 1.5 ATR
+  const minZoneWidth = Math.max(currentPrice * 0.01, atr * 1.5);
   
   let entryLow: number;
   let entryHigh: number;
@@ -530,51 +534,51 @@ function calculateTradeLevels(
   // Entry zone depends on setup type
   switch (setupType) {
     case 'divergence':
-      // Wait for pullback to EMA21 for better entry
-      entryHigh = Math.min(currentPrice * 1.01, ema21 * 1.005);
-      entryLow = Math.max(currentPrice * 0.985, ema21 * 0.995);
+    case 'oiDivergence':
+      // Wait for pullback to EMA21 or slightly above current
+      entryHigh = Math.min(currentPrice * 1.015, ema21 * 1.01);
+      entryLow = currentPrice;
       break;
       
     case 'fakePump':
-      // Enter quickly, fake pumps reverse fast
-      entryHigh = currentPrice * 1.005;
+      // Enter quickly at current price, fake pumps reverse fast
+      entryHigh = currentPrice * 1.01;
       entryLow = currentPrice * 0.995;
       break;
       
     case 'structureBreak':
-      // Enter on retest of broken level (current price area)
-      entryHigh = currentPrice * 1.01;
-      entryLow = currentPrice - entryWidth;
+      // Enter on retest of broken level
+      entryHigh = currentPrice * 1.015;
+      entryLow = currentPrice;
       break;
       
     case 'doubleTop':
-      // Enter after confirmation at neckline area
-      entryHigh = currentPrice * 1.005;
-      entryLow = currentPrice - entryWidth;
+      // Enter at neckline area
+      entryHigh = currentPrice * 1.01;
+      entryLow = currentPrice - minZoneWidth * 0.5;
       break;
       
     case 'resistanceRejection':
     case 'rejection':
-      // If at BB upper, expect slight pullback first
-      if (bbPosition > 90) {
-        entryHigh = currentPrice;
-        entryLow = currentPrice - entryWidth * 1.5;
+      // If at BB upper, enter at current or slight pullback
+      if (bbPosition > 85) {
+        entryHigh = currentPrice * 1.005;
+        entryLow = currentPrice - minZoneWidth * 0.5;
       } else {
-        entryHigh = currentPrice + entryWidth * 0.5;
-        entryLow = currentPrice - entryWidth * 0.5;
+        entryHigh = currentPrice * 1.01;
+        entryLow = currentPrice - minZoneWidth * 0.5;
       }
       break;
       
-    case 'oiDivergence':
-      // Similar to divergence, wait for pullback
-      entryHigh = Math.min(currentPrice * 1.01, ema21 * 1.005);
-      entryLow = Math.max(currentPrice * 0.985, ema21 * 0.995);
-      break;
-      
     default:
-      // Standard entry zone
-      entryHigh = currentPrice + entryWidth * 0.5;
-      entryLow = currentPrice - entryWidth * 0.5;
+      // Standard: enter at current price with buffer above
+      entryHigh = currentPrice * 1.01;
+      entryLow = currentPrice;
+  }
+  
+  // Ensure minimum zone width
+  if (entryHigh - entryLow < minZoneWidth) {
+    entryLow = entryHigh - minZoneWidth;
   }
   
   const entryZone: [number, number] = [
@@ -584,31 +588,23 @@ function calculateTradeLevels(
   const avgEntry = (entryLow + entryHigh) / 2;
 
   // ==================== SMART STOP LOSS ====================
-  // Place behind key resistance levels
+  // Minimum 2 ATR from entry, behind key resistance
   
-  // Calculate potential SL levels
-  const slCandidates: number[] = [];
+  // Calculate SL candidates (must be above entry for SHORT)
+  const minSL = avgEntry + atr * 2; // Minimum 2 ATR
   
-  // 1. ATR-based SL (always include as minimum)
-  const atrSL = avgEntry + atr * 1.5;
-  slCandidates.push(atrSL);
+  // SL candidates
+  const slCandidates: number[] = [minSL];
   
-  // 2. 24h High + buffer
-  const highBasedSL = high24h * 1.01;
-  slCandidates.push(highBasedSL);
+  // 24h High + 0.5% buffer
+  slCandidates.push(high24h * 1.005);
   
-  // 3. Upper Bollinger Band + buffer
-  const bbSL = bbUpper * 1.005;
-  slCandidates.push(bbSL);
+  // Upper Bollinger Band
+  slCandidates.push(bbUpper * 1.005);
   
-  // 4. VWAP above price + buffer
+  // VWAP if above entry
   if (vwap > avgEntry) {
     slCandidates.push(vwap * 1.01);
-  }
-  
-  // 5. EMA21/50 if above price (resistance)
-  if (ema21 > avgEntry) {
-    slCandidates.push(ema21 * 1.005);
   }
   
   // Choose SL based on setup type
@@ -616,115 +612,76 @@ function calculateTradeLevels(
   
   switch (setupType) {
     case 'fakePump':
-      // For fake pump, SL behind the high (tight stop)
-      stopLoss = Math.min(highBasedSL, atrSL);
-      break;
-      
-    case 'doubleTop':
-      // SL behind the second top
-      stopLoss = highBasedSL;
-      break;
-      
-    case 'structureBreak':
-      // SL behind the broken structure level
-      stopLoss = Math.min(...slCandidates.filter(sl => sl > avgEntry + atr));
+      // Tight SL for fake pump - behind the high
+      stopLoss = Math.min(high24h * 1.005, avgEntry + atr * 2.5);
       break;
       
     case 'divergence':
     case 'oiDivergence':
-      // Wider SL for divergence setups
-      stopLoss = Math.min(...slCandidates.slice(0, 3));
+      // Wider SL for divergence - behind structure
+      stopLoss = Math.min(...slCandidates.filter(sl => sl > avgEntry + atr));
       break;
       
     default:
-      // Choose the most logical (lowest above entry)
-      stopLoss = Math.min(...slCandidates.filter(sl => sl > avgEntry));
+      // Choose lowest valid SL (closest above entry but >= minSL)
+      stopLoss = Math.min(...slCandidates.filter(sl => sl >= minSL));
   }
   
-  // Ensure SL is at least 1 ATR from entry (avoid noise)
-  const minSL = avgEntry + atr;
+  // Ensure SL is at least minSL
   stopLoss = Math.max(stopLoss, minSL);
   stopLoss = Math.round(stopLoss * 1000000) / 1000000;
 
   // ==================== SMART TAKE PROFITS ====================
-  // Based on market structure and key levels
+  // Target: 2R for TP1, 3R+ for TP2
   
-  // Find levels below current price for targets
+  const risk = stopLoss - avgEntry;
+  
+  // Calculate target candidates below entry
   const tpCandidates: number[] = [];
   
-  // Bollinger Band levels
-  tpCandidates.push(bbMiddle);  // TP1 candidate
-  tpCandidates.push(bbLower);   // TP2 candidate
+  // ATR-based targets (minimum)
+  tpCandidates.push(avgEntry - risk * 2);  // TP1: 2R
+  tpCandidates.push(avgEntry - risk * 3);  // TP2: 3R
   
-  // EMA levels
+  // Structure-based targets
+  tpCandidates.push(bbMiddle);
+  tpCandidates.push(bbLower);
   tpCandidates.push(ema50);
-  tpCandidates.push(indicators.ema.ema100);
-  tpCandidates.push(indicators.ema.ema200);
-  
-  // 24h Low
   tpCandidates.push(low24h);
   
-  // VWAP if below price
+  // VWAP if below entry
   if (vwap > 0 && vwap < avgEntry) {
     tpCandidates.push(vwap);
   }
   
-  // Filter and sort targets below entry
+  // Filter targets below entry and sort by distance
   const validTargets = tpCandidates
     .filter(level => level > 0 && level < avgEntry)
-    .sort((a, b) => b - a); // Sort descending (closest first)
+    .sort((a, b) => b - a); // Closest first
   
   let takeProfit1: number;
   let takeProfit2: number;
   
-  switch (setupType) {
-    case 'fakePump':
-      // For fake pump: targets based on pump reversion
-      const pumpSize = (high24h - low24h) / low24h;
-      const pumpHigh = high24h;
-      // TP1: 50% reversion of pump
-      takeProfit1 = pumpHigh - (pumpHigh - low24h) * 0.5;
-      // TP2: Full reversion
-      takeProfit2 = low24h;
-      break;
-      
-    case 'doubleTop':
-      // Classic measured move from neckline
-      const neckline = validTargets[0] || bbMiddle;
-      const patternHeight = high24h - neckline;
-      takeProfit1 = neckline - patternHeight * 0.5;
-      takeProfit2 = neckline - patternHeight;
-      break;
-      
-    case 'structureBreak':
-      // Target previous lows
-      takeProfit1 = validTargets[0] || bbMiddle;
-      takeProfit2 = validTargets[1] || bbLower;
-      break;
-      
-    default:
-      // Standard: BB middle for TP1, BB lower for TP2
-      if (validTargets.length >= 2) {
-        takeProfit1 = validTargets[0];
-        takeProfit2 = validTargets[1];
-      } else if (validTargets.length === 1) {
-        takeProfit1 = validTargets[0];
-        takeProfit2 = validTargets[0] - atr * 2;
-      } else {
-        // Fallback to ATR-based targets
-        takeProfit1 = avgEntry - atr * 2;
-        takeProfit2 = avgEntry - atr * 4;
-      }
+  // Choose TP1: closest target or 2R minimum
+  if (validTargets.length > 0) {
+    takeProfit1 = validTargets[0];
+    // Ensure TP1 is at least 1.5R
+    if (avgEntry - takeProfit1 < risk * 1.5) {
+      takeProfit1 = avgEntry - risk * 1.5;
+    }
+  } else {
+    takeProfit1 = avgEntry - risk * 2;
   }
   
-  // Ensure TP1 > TP2 (TP1 is closer/first target)
-  if (takeProfit1 < takeProfit2) {
-    [takeProfit1, takeProfit2] = [takeProfit2, takeProfit1];
-  }
-  
-  // Ensure TP1 is closer than TP2
-  if (takeProfit1 < takeProfit2) {
-    takeProfit1 = takeProfit2 + atr;
+  // Choose TP2: second target or 3R
+  if (validTargets.length > 1) {
+    takeProfit2 = validTargets[1];
+    // Ensure TP2 is further than TP1
+    if (takeProfit2 >= takeProfit1) {
+      takeProfit2 = takeProfit1 - risk;
+    }
+  } else {
+    takeProfit2 = avgEntry - risk * 3;
   }
   
   // Round TPs
@@ -732,16 +689,13 @@ function calculateTradeLevels(
   takeProfit2 = Math.round(takeProfit2 * 1000000) / 1000000;
 
   // ==================== RISK/REWARD RATIO ====================
-  const risk = stopLoss - avgEntry;
   const reward1 = avgEntry - takeProfit1;
-  const reward2 = avgEntry - takeProfit2;
   const riskReward = risk > 0 ? Math.round((reward1 / risk) * 100) / 100 : 0;
 
   // ==================== BREAKEVEN ====================
-  // Trigger when price moves 1R in our favor
-  
-  const breakevenTrigger = avgEntry - risk; // Moved 1R in profit
-  const breakevenSL = avgEntry; // Move SL to entry
+  // Trigger when price moves 1.5R in our favor
+  const breakevenTrigger = avgEntry - risk * 1.5;
+  const breakevenSL = avgEntry;
   
   // Language-aware breakeven info
   const beInfo = language === 'ru' 
@@ -789,14 +743,17 @@ function generateKeyLevels(
 
 /**
  * Determine recommendation
+ * v2.1: Adjusted thresholds for better SHORT detection
  */
 function determineRecommendation(
   shortScore: ReturnType<typeof calculateShortScore>,
   indicators: ReturnType<typeof getAllIndicators>
 ): 'enter' | 'wait' | 'skip' {
-  if (shortScore.total >= 60 && indicators.rsi.value > 60) {
+  // Enter: Good score + RSI overbought (key for SHORT)
+  if (shortScore.total >= 50 && indicators.rsi.value >= 65) {
     return 'enter';
-  } else if (shortScore.total >= 40) {
+  } else if (shortScore.total >= 30) {
+    // Wait: Decent score, needs confirmation
     return 'wait';
   }
   return 'skip';
@@ -923,7 +880,7 @@ export async function GET(request: NextRequest) {
           oiChange24h: openInterestData.change24h,
           priceChange24h: ticker.priceChange24h,
         });
-        const shortScore = calculateShortScore(indicators);
+        const shortScore = calculateShortScore(indicators, ticker.priceChange24h);
         const setupType = determineSetupType(indicators, shortScore, ticker.priceChange24h, t);
         
         const atr = indicators.atr.value || (ticker.currentPrice * 0.02);
