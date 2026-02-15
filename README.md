@@ -1,141 +1,266 @@
-# 🚀 Welcome to Z.ai Code Scaffold
+# 📉 SHORT Scanner v2.1
 
-A modern, production-ready web application scaffold powered by cutting-edge technologies, designed to accelerate your development with [Z.ai](https://chat.z.ai)'s AI-powered coding assistance.
+**Professional cryptocurrency SHORT setup scanner with Multi-TF analysis and Perpetual futures support.**
 
-## ✨ Technology Stack
+![Version](https://img.shields.io/badge/version-2.1-blue)
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 
-This scaffold provides a robust foundation built with:
+---
 
-### 🎯 Core Framework
-- **⚡ Next.js 16** - The React framework for production with App Router
-- **📘 TypeScript 5** - Type-safe JavaScript for better developer experience
-- **🎨 Tailwind CSS 4** - Utility-first CSS framework for rapid UI development
+## 🎯 Overview
 
-### 🧩 UI Components & Styling
-- **🧩 shadcn/ui** - High-quality, accessible components built on Radix UI
-- **🎯 Lucide React** - Beautiful & consistent icon library
-- **🌈 Framer Motion** - Production-ready motion library for React
-- **🎨 Next Themes** - Perfect dark mode in 2 lines of code
+SHORT Scanner automatically detects potential SHORT trading opportunities on cryptocurrency perpetual futures markets. It analyzes price action, momentum indicators, and market sentiment to identify overbought conditions suitable for short positions.
 
-### 📋 Forms & Validation
-- **🎣 React Hook Form** - Performant forms with easy validation
-- **✅ Zod** - TypeScript-first schema validation
+### Key Features
 
-### 🔄 State Management & Data Fetching
-- **🐻 Zustand** - Simple, scalable state management
-- **🔄 TanStack Query** - Powerful data synchronization for React
-- **🌐 Fetch** - Promise-based HTTP request
+| Feature | Description |
+|---------|-------------|
+| **Multi-TF Analysis** | 5 timeframes pool: 5m, 15m, 1h, 2h, 4h with weighted scoring |
+| **10 Setup Types** | Divergence, Fake Pump, Structure Break, Double Top, etc. |
+| **SHORT Score v2.1** | 0-100 scoring system based on momentum, price action, divergence |
+| **Perpetual Data** | Funding Rate & Open Interest analysis |
+| **Trade Levels** | Auto-calculated Entry Zone, Stop Loss, Take Profit, R:R ratio |
+| **Trading Style** | Scalping / Day Trading / Swing detection |
+| **Multi-Language** | Russian 🇷🇺 and English 🇺🇸 support |
 
-### 🗄️ Database & Backend
-- **🗄️ Prisma** - Next-generation TypeScript ORM
-- **🔐 NextAuth.js** - Complete open-source authentication solution
+---
 
-### 🎨 Advanced UI Features
-- **📊 TanStack Table** - Headless UI for building tables and datagrids
-- **🖱️ DND Kit** - Modern drag and drop toolkit for React
-- **📊 Recharts** - Redefined chart library built with React and D3
-- **🖼️ Sharp** - High performance image processing
+## 📊 Setup Types Detected
 
-### 🌍 Internationalization & Utilities
-- **🌍 Next Intl** - Internationalization library for Next.js
-- **📅 Date-fns** - Modern JavaScript date utility library
-- **🪝 ReactUse** - Collection of essential React hooks for modern development
+| Setup | Description |
+|-------|-------------|
+| **Divergence** | Bearish RSI/MACD divergence - price makes higher highs, indicator makes lower highs |
+| **OI Divergence** | Price pumping while Open Interest drops - longs closing |
+| **Fake Pump** | Artificial pump without real volume - potential sharp reversal |
+| **Structure Break** | Local low breakout - trend structure change |
+| **Double Top** | Classic reversal pattern with two peaks |
+| **Rejection** | Bollinger Band upper rejection + RSI overbought |
+| **Resistance Rejection** | Price rejected at key resistance level |
+| **Breakout** | Bearish EMA crossover |
+| **Level Breakout** | Support level breakout and retest |
+| **Mean Reversion** | Price far from mean - expected return |
 
-## 🎯 Why This Scaffold?
+---
 
-- **🏎️ Fast Development** - Pre-configured tooling and best practices
-- **🎨 Beautiful UI** - Complete shadcn/ui component library with advanced interactions
-- **🔒 Type Safety** - Full TypeScript configuration with Zod validation
-- **📱 Responsive** - Mobile-first design principles with smooth animations
-- **🗄️ Database Ready** - Prisma ORM configured for rapid backend development
-- **🔐 Auth Included** - NextAuth.js for secure authentication flows
-- **📊 Data Visualization** - Charts, tables, and drag-and-drop functionality
-- **🌍 i18n Ready** - Multi-language support with Next Intl
-- **🚀 Production Ready** - Optimized build and deployment settings
-- **🤖 AI-Friendly** - Structured codebase perfect for AI assistance
+## 🔧 SHORT Score v2.1 Breakdown
+
+```
+Score 0-100 = Momentum + Price Action + Divergence + Volume + Perpetual + Trend
+```
+
+| Category | Weight | Key Factors |
+|----------|--------|-------------|
+| **Momentum** | 30% | RSI overbought (>70), StochRSI extreme, MACD bearish |
+| **Price Action** | 20% | Price change magnitude, BB position, VWAP deviation |
+| **Divergence** | 15% | RSI/MACD bearish divergence with confirmation |
+| **Volume** | 10% | OBV trend, Fake Pump detection |
+| **Perpetual** | 15% | Funding Rate, Open Interest interpretation |
+| **Trend** | 10% | Multi-TF alignment score |
+
+---
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- Node.js 18+ 
+- Bun package manager
+
+### Installation
+
 ```bash
+# Clone repository
+git clone https://github.com/mordoreay/short-scanner.git
+cd short-scanner
+
 # Install dependencies
 bun install
 
 # Start development server
 bun run dev
-
-# Build for production
-bun run build
-
-# Start production server
-bun start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see your application running.
+Open [http://localhost:3000](http://localhost:3000)
 
-## 🤖 Powered by Z.ai
+---
 
-This scaffold is optimized for use with [Z.ai](https://chat.z.ai) - your AI assistant for:
+## 📱 Usage
 
-- **💻 Code Generation** - Generate components, pages, and features instantly
-- **🎨 UI Development** - Create beautiful interfaces with AI assistance  
-- **🔧 Bug Fixing** - Identify and resolve issues with intelligent suggestions
-- **📝 Documentation** - Auto-generate comprehensive documentation
-- **🚀 Optimization** - Performance improvements and best practices
+### Scanner Controls
 
-Ready to build something amazing? Start chatting with Z.ai at [chat.z.ai](https://chat.z.ai) and experience the future of AI-powered development!
+1. **Select Exchange**: Bybit, Binance, OKX
+2. **Click "Scan"**: Analyze top gainers for SHORT setups
+3. **Review Results**: Check score, setup type, trade levels
+4. **Filter**: Hide "Skip" recommendations with checkbox
+
+### Understanding Results
+
+| Badge | Meaning |
+|-------|---------|
+| 🟢 **Enter** | Score ≥ 50, RSI ≥ 65 - Good SHORT opportunity |
+| 🟡 **Wait** | Score ≥ 30 - Needs confirmation |
+| 🔴 **Skip** | Score < 30 - Not recommended |
+
+### Trade Levels
+
+| Level | Calculation |
+|-------|-------------|
+| **Entry Zone** | Current price ± 1% (setup-dependent) |
+| **Stop Loss** | Minimum 2 ATR above entry, behind resistance |
+| **Take Profit 1** | Minimum 1.5R (structure-based) |
+| **Take Profit 2** | Minimum 3R (structure-based) |
+| **R:R Ratio** | Minimum 1.5 |
+
+---
+
+## 🔌 Supported Exchanges
+
+| Exchange | Status | Notes |
+|----------|--------|-------|
+| **Bybit** | ✅ Active | Primary, best data |
+| **Binance** | ✅ Active | High liquidity |
+| **OKX** | ✅ Active | Fixed API endpoints |
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Next.js 15** - App Router
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
+- **shadcn/ui** - UI components
+- **Radix UI** - Accessible primitives
+
+### Backend
+- **Next.js API Routes** - Server endpoints
+- **Custom Indicators** - RSI, MACD, BB, EMA, OBV, ADX, StochRSI
+- **Multi-TF Engine** - Weighted timeframe analysis
+
+### Data Sources
+- Exchange REST APIs for perpetual futures
+- Real-time funding rates
+- Open Interest data
+
+---
 
 ## 📁 Project Structure
 
 ```
 src/
-├── app/                 # Next.js App Router pages
-├── components/          # Reusable React components
-│   └── ui/             # shadcn/ui components
-├── hooks/              # Custom React hooks
-└── lib/                # Utility functions and configurations
+├── app/
+│   ├── page.tsx              # Main scanner UI
+│   └── api/scanner/route.ts  # Scanner API endpoint
+├── components/
+│   ├── Scanner/              # Scanner components
+│   │   ├── SetupCard.tsx     # Setup result card
+│   │   ├── IndicatorsGrid.tsx # Indicators display
+│   │   └── ScannerControls.tsx
+│   └── ui/                   # shadcn/ui components
+├── lib/
+│   ├── exchanges/            # Exchange APIs
+│   │   ├── bybit.ts
+│   │   ├── binance.ts
+│   │   └── okx.ts
+│   ├── indicators/           # Technical indicators
+│   │   ├── rsi.ts
+│   │   ├── macd.ts
+│   │   ├── bollinger.ts
+│   │   ├── ema.ts
+│   │   ├── obv.ts
+│   │   └── ...
+│   ├── scoring/              # Score calculation
+│   │   └── shortScore.ts
+│   └── i18n/                 # Translations
+│       ├── ru.ts
+│       └── en.ts
+└── types/
+    └── scanner.ts            # TypeScript types
 ```
-
-## 🎨 Available Features & Components
-
-This scaffold includes a comprehensive set of modern web development tools:
-
-### 🧩 UI Components (shadcn/ui)
-- **Layout**: Card, Separator, Aspect Ratio, Resizable Panels
-- **Forms**: Input, Textarea, Select, Checkbox, Radio Group, Switch
-- **Feedback**: Alert, Toast (Sonner), Progress, Skeleton
-- **Navigation**: Breadcrumb, Menubar, Navigation Menu, Pagination
-- **Overlay**: Dialog, Sheet, Popover, Tooltip, Hover Card
-- **Data Display**: Badge, Avatar, Calendar
-
-### 📊 Advanced Data Features
-- **Tables**: Powerful data tables with sorting, filtering, pagination (TanStack Table)
-- **Charts**: Beautiful visualizations with Recharts
-- **Forms**: Type-safe forms with React Hook Form + Zod validation
-
-### 🎨 Interactive Features
-- **Animations**: Smooth micro-interactions with Framer Motion
-- **Drag & Drop**: Modern drag-and-drop functionality with DND Kit
-- **Theme Switching**: Built-in dark/light mode support
-
-### 🔐 Backend Integration
-- **Authentication**: Ready-to-use auth flows with NextAuth.js
-- **Database**: Type-safe database operations with Prisma
-- **API Client**: HTTP requests with Fetch + TanStack Query
-- **State Management**: Simple and scalable with Zustand
-
-### 🌍 Production Features
-- **Internationalization**: Multi-language support with Next Intl
-- **Image Optimization**: Automatic image processing with Sharp
-- **Type Safety**: End-to-end TypeScript with Zod validation
-- **Essential Hooks**: 100+ useful React hooks with ReactUse for common patterns
-
-## 🤝 Get Started with Z.ai
-
-1. **Clone this scaffold** to jumpstart your project
-2. **Visit [chat.z.ai](https://chat.z.ai)** to access your AI coding assistant
-3. **Start building** with intelligent code generation and assistance
-4. **Deploy with confidence** using the production-ready setup
 
 ---
 
-Built with ❤️ for the developer community. Supercharged by [Z.ai](https://chat.z.ai) 🚀
+## 🌐 API Endpoint
+
+### Scanner API
+
+```
+GET /api/scanner
+```
+
+**Parameters:**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| exchange | string | bybit | Exchange name |
+| minChange | number | 15 | Minimum 24h price change % |
+| language | string | ru | Response language (ru/en) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Found 5 SHORT setups",
+  "candidates": [
+    {
+      "symbol": "BTCUSDT",
+      "shortScore": { "total": 65 },
+      "recommendation": "enter",
+      "setup": {
+        "type": "divergence",
+        "entryZone": [95000, 96000],
+        "stopLoss": 97000,
+        "takeProfit1": 92000,
+        "riskReward": 1.5
+      }
+    }
+  ]
+}
+```
+
+---
+
+## ⚠️ Disclaimer
+
+**This tool is for educational and informational purposes only.**
+
+- NOT financial advice
+- Trading cryptocurrencies involves significant risk
+- Always do your own research (DYOR)
+- Past performance does not guarantee future results
+- Use proper risk management
+
+---
+
+## 📈 Version History
+
+### v2.1 (Current)
+- Recalibrated SHORT Score for gainers
+- Added price change magnitude scoring
+- Improved R:R calculation (min 1.5)
+- Added Trading Style detection
+- Multi-language support (RU/EN)
+
+### v2.0
+- Multi-TF analysis (5 timeframes)
+- Perpetual futures support
+- 10 setup types
+- 3 exchanges
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to:
+- Report bugs
+- Suggest features
+- Submit pull requests
+
+---
+
+## 📄 License
+
+MIT License - feel free to use for personal or commercial projects.
+
+---
+
+**Built for traders who prefer data over emotions.** 📉
