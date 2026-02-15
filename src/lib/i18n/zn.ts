@@ -96,8 +96,4 @@ export const zn: TranslationKeys = {
   viewOnBinance: '在Binance查看',
   viewOnBybit: '在Bybit查看',
   viewOnOKX: '在OKX查看',
-  viewOnBitget: '在Bitget查看',
-  viewOnGate: '在Gate查看',
-  viewOnKuCoin: '在KuCoin查看',
-  viewOnMEXC: '在MEXC查看',
 };

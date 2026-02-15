@@ -96,8 +96,4 @@ export const ru: TranslationKeys = {
   viewOnBinance: 'Открыть в Binance',
   viewOnBybit: 'Открыть в Bybit',
   viewOnOKX: 'Открыть в OKX',
-  viewOnBitget: 'Открыть в Bitget',
-  viewOnGate: 'Открыть в Gate',
-  viewOnKuCoin: 'Открыть в KuCoin',
-  viewOnMEXC: 'Открыть в MEXC',
 };

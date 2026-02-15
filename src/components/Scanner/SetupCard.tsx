@@ -208,10 +208,6 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
   const binanceUrl = `https://www.binance.com/en/trade/${candidate.symbol}`;
   const bybitUrl = `https://www.bybit.com/en-US/trade/spot/${candidate.symbol}`;
   const okxUrl = `https://www.okx.com/trade-spot/${candidate.name}-USDT`;
-  const bitgetUrl = `https://www.bitget.com/spot/${candidate.symbol}`;
-  const gateUrl = `https://www.gate.io/trade/${candidate.name}_USDT`;
-  const kucoinUrl = `https://www.kucoin.com/trade/spot/${candidate.symbol}`;
-  const mexcUrl = `https://www.mexc.com/exchange/${candidate.symbol}`;
 
   return (
     <Card className="bg-card border-border hover:border-primary/50 transition-all duration-300">
@@ -252,26 +248,6 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
                     <DropdownMenuItem asChild>
                       <a href={okxUrl} target="_blank" rel="noopener noreferrer">
                         {t.viewOnOKX}
-                      </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href={bitgetUrl} target="_blank" rel="noopener noreferrer">
-                        {t.viewOnBitget}
-                      </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href={gateUrl} target="_blank" rel="noopener noreferrer">
-                        {t.viewOnGate}
-                      </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href={kucoinUrl} target="_blank" rel="noopener noreferrer">
-                        {t.viewOnKuCoin}
-                      </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href={mexcUrl} target="_blank" rel="noopener noreferrer">
-                        {t.viewOnMEXC}
                       </a>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

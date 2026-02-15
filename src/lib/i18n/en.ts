@@ -96,8 +96,4 @@ export const en: TranslationKeys = {
   viewOnBinance: 'View on Binance',
   viewOnBybit: 'View on Bybit',
   viewOnOKX: 'View on OKX',
-  viewOnBitget: 'View on Bitget',
-  viewOnGate: 'View on Gate',
-  viewOnKuCoin: 'View on KuCoin',
-  viewOnMEXC: 'View on MEXC',
 };
