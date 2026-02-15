@@ -108,57 +108,6 @@ const translations = {
       skip: 'Skip this setup',
     },
   },
-  zn: {
-    patterns: {
-      divergence: '看跌RSI/MACD背离',
-      rejection: '布林带+RSI拒绝',
-      fakePump: '假拉升检测',
-      breakout: 'EMA看跌交叉',
-      meanReversion: '均值回归设置',
-      structureBreak: '趋势结构突破',
-      levelBreakout: '支撑位突破',
-      resistanceRejection: '阻力拒绝',
-      doubleTop: '双顶形态',
-      oiDivergence: '价格/OI背离',
-    },
-    descriptions: {
-      divergence: 'RSI或MACD在价格上涨时形成较低的高点 - 动量减弱和潜在反转的迹象。',
-      rejection: '价格从布林带上轨拒绝，RSI超买 - 经典卖出信号。',
-      fakePump: '无真实成交量的人为拉升，通常先于急剧下跌。',
-      breakout: 'EMA看跌交叉（9从上向下穿过21） - 下跌趋势开始的信号。',
-      meanReversion: '价格显著偏离均值，预期回归平均。',
-      structureBreak: '上升趋势中的局部低点被突破 - 市场结构转向下跌趋势的信号。',
-      levelBreakout: '价格突破关键支撑位并返回 - 从阻力位做空的机会。',
-      resistanceRejection: '价格在关键水平遇到强阻力并开始下跌。',
-      doubleTop: '上升运动中的双顶 - 经典反转形态。',
-      oiDivergence: '价格上涨但持仓量下降 - 多头平仓，潜在反转。',
-    },
-    warnings: {
-      extremeMove: '极端价格波动(>50%) - 高波动风险',
-      weakTrend: '趋势疲弱 - 可能横盘',
-      highVolatility: '高波动性 - 使用较小仓位',
-      rsiNotOverbought: 'RSI未超买 - 做空设置可能过早',
-      belowEMA200: '价格低于EMA200 - 可能已处于下降趋势',
-      largePump: '大幅上涨但无假拉升信号 - 请手动验证',
-    },
-    reasoning: {
-      detected: '检测到',
-      rsiOverbought: 'RSI超买于',
-      emaBearish: 'EMA排列看跌(9<21<50)',
-      fakePumpDetected: '检测到假拉升(置信度',
-      rsiDivergence: '存在看跌RSI背离',
-      bbOverbought: '价格位于布林带上轨',
-      priceChange: '24小时价格变化',
-    },
-    analysis: {
-      shows: '显示',
-      withScore: '做空分数',
-      recommendation: '建议',
-      enter: '考虑进场',
-      wait: '等待确认',
-      skip: '跳过此设置',
-    },
-  },
 };
 
 type Translations = typeof translations.ru;
@@ -797,8 +746,6 @@ function calculateTradeLevels(
   // Language-aware breakeven info
   const beInfo = language === 'ru' 
     ? `Перевести SL на ${breakevenSL.toFixed(6)} при достижении ${breakevenTrigger.toFixed(6)}`
-    : language === 'zn'
-    ? `在 ${breakevenTrigger.toFixed(6)} 时将止损移至 ${breakevenSL.toFixed(6)}`
     : `Move SL to ${breakevenSL.toFixed(6)} at ${breakevenTrigger.toFixed(6)}`;
 
   return {

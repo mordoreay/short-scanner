@@ -2,7 +2,7 @@
 export type Exchange = 'bybit' | 'binance' | 'okx';
 export type Timeframe = '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '1d';
 export type SortOption = 'confidence' | 'priceChange' | 'rsi' | 'shortScore' | 'volume';
-export type Language = 'ru' | 'en' | 'zn';
+export type Language = 'ru' | 'en';
 
 // Candle data from exchanges
 export interface Candle {

@@ -18,7 +18,6 @@ interface LanguageSelectorProps {
 const languages: { value: Language; label: string; flag: string }[] = [
   { value: 'ru', label: 'Русский', flag: '🇷🇺' },
   { value: 'en', label: 'English', flag: '🇺🇸' },
-  { value: 'zn', label: '中文', flag: '🇨🇳' },
 ];
 
 export function LanguageSelector({ language, onLanguageChange }: LanguageSelectorProps) {
