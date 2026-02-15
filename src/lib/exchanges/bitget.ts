@@ -2,30 +2,74 @@ import { Candle, Ticker, ExchangeAPI } from '@/types/scanner';
 
 /**
  * Bitget Exchange API - PERPETUAL (USDT-Futures)
- * Documentation: https://www.bitget.com/api-doc/common/intro
+ * Documentation: https://www.bitget.com/api-doc/contract/market/Get-All-Symbol-Ticker
+ * 
+ * Endpoints:
+ * - Tickers: GET /api/v2/mix/market/tickers?productType=USDT-FUTURES
+ * - Candles: GET /api/v2/mix/market/candles?productType=USDT-FUTURES&symbol={symbol}&interval={interval}
+ * - Funding Rate: GET /api/v2/mix/market/current-funding-rate?productType=USDT-FUTURES&symbol={symbol}
+ * - Open Interest: GET /api/v2/mix/market/open-interest?productType=USDT-FUTURES&symbol={symbol}
+ * 
+ * Note: Bitget API may have rate limits (20 req/s per IP)
  */
 export class BitgetAPI implements ExchangeAPI {
   name = 'bitget';
   private baseUrl = 'https://api.bitget.com';
+  private requestTimeout = 15000; // 15 seconds
+  
+  // Cache for tickers to avoid repeated calls
+  private tickersCache: Ticker[] = [];
+  private tickersCacheTime: number = 0;
+  private cacheDuration: number = 60000; // 1 minute cache
+
+  private async fetchWithTimeout(url: string): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.requestTimeout);
+    
+    try {
+      const response = await fetch(url, {
+        next: { revalidate: 60 },
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }
+      });
+      return response;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
 
   async getTickers(): Promise<Ticker[]> {
+    // Return cached data if still valid
+    if (this.tickersCache.length > 0 && Date.now() - this.tickersCacheTime < this.cacheDuration) {
+      return this.tickersCache;
+    }
+
     try {
-      // USDT-FUTURES = USDT-margined perpetual
-      const response = await fetch(`${this.baseUrl}/api/v2/mix/market/tickers?productType=USDT-FUTURES`, {
-        next: { revalidate: 60 }
-      });
+      const response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v2/mix/market/tickers?productType=USDT-FUTURES`
+      );
       
       if (!response.ok) {
-        throw new Error(`Bitget API error: ${response.status}`);
+        console.error(`Bitget API error: ${response.status}`);
+        return this.tickersCache; // Return cached data on error
       }
 
       const data = await response.json();
       
       if (data.code !== '00000') {
-        throw new Error(`Bitget API error: ${data.msg}`);
+        console.error(`Bitget API error: ${data.msg}`);
+        return this.tickersCache;
       }
 
-      return data.data
+      if (!Array.isArray(data.data)) {
+        console.error('Bitget API: Invalid data format');
+        return this.tickersCache;
+      }
+
+      const tickers = data.data
         .filter((item: { symbol: string }) => item.symbol.endsWith('USDT'))
         .map((item: {
           symbol: string;
@@ -36,27 +80,32 @@ export class BitgetAPI implements ExchangeAPI {
           low24h: string;
           quoteVolume: string;
           fundingRate?: string;
-          openInterest?: string;
-          markPrice?: string;
+          holdingAmount?: string;
           indexPrice?: string;
-        }) => ({
-          symbol: item.symbol,
-          name: item.symbol.replace('USDT', ''),
-          currentPrice: parseFloat(item.lastPr),
-          priceChange24h: parseFloat(item.change24h) * 100,
-          volume: parseFloat(item.baseVolume),
-          high24h: parseFloat(item.high24h),
-          low24h: parseFloat(item.low24h),
-          quoteVolume: parseFloat(item.quoteVolume),
-          // Perpetual specific
-          fundingRate: item.fundingRate ? parseFloat(item.fundingRate) : undefined,
-          openInterest: item.openInterest ? parseFloat(item.openInterest) : undefined,
-          markPrice: item.markPrice ? parseFloat(item.markPrice) : undefined,
-          indexPrice: item.indexPrice ? parseFloat(item.indexPrice) : undefined,
-        }));
+        }) => {
+          // Bitget change24h is already a decimal (0.05 = 5%)
+          const changePercent = parseFloat(item.change24h) * 100;
+          
+          return {
+            symbol: item.symbol,
+            name: item.symbol.replace('USDT', ''),
+            currentPrice: parseFloat(item.lastPr),
+            priceChange24h: changePercent,
+            volume: parseFloat(item.baseVolume),
+            high24h: parseFloat(item.high24h),
+            low24h: parseFloat(item.low24h),
+            quoteVolume: parseFloat(item.quoteVolume),
+          };
+        });
+
+      // Update cache
+      this.tickersCache = tickers;
+      this.tickersCacheTime = Date.now();
+      
+      return tickers;
     } catch (error) {
-      console.error('Bitget getTickers error:', error);
-      return [];
+      console.error('Bitget getTickers error:', error instanceof Error ? error.message : error);
+      return this.tickersCache; // Return cached data on error
     }
   }
 
@@ -70,24 +119,28 @@ export class BitgetAPI implements ExchangeAPI {
       };
 
       const bitgetInterval = intervalMap[interval] || '4H';
-      const endTime = Date.now();
-      const startTime = endTime - (limit * this.getIntervalMs(interval));
       
-      const response = await fetch(
-        `${this.baseUrl}/api/v2/mix/market/candles?productType=USDT-FUTURES&symbol=${symbol}&interval=${bitgetInterval}&limit=${limit}`,
-        { next: { revalidate: 30 } }
+      const response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v2/mix/market/candles?productType=USDT-FUTURES&symbol=${symbol}&interval=${bitgetInterval}&limit=${limit}`
       );
 
       if (!response.ok) {
-        throw new Error(`Bitget klines error: ${response.status}`);
+        console.error(`Bitget klines error: ${response.status}`);
+        return [];
       }
 
       const data = await response.json();
       
       if (data.code !== '00000') {
-        throw new Error(`Bitget klines error: ${data.msg}`);
+        console.error(`Bitget klines error: ${data.msg}`);
+        return [];
       }
 
+      if (!Array.isArray(data.data)) {
+        return [];
+      }
+
+      // Bitget format: [ts, open, high, low, close, volume, quoteVolume]
       return data.data
         .map((item: string[]) => ({
           timestamp: parseInt(item[0]),
@@ -99,19 +152,9 @@ export class BitgetAPI implements ExchangeAPI {
         }))
         .reverse();
     } catch (error) {
-      console.error('Bitget getKlines error:', error);
+      console.error('Bitget getKlines error:', error instanceof Error ? error.message : error);
       return [];
     }
-  }
-
-  private getIntervalMs(interval: string): number {
-    const ms: Record<string, number> = {
-      '15m': 15 * 60 * 1000,
-      '1h': 60 * 60 * 1000,
-      '4h': 4 * 60 * 60 * 1000,
-      '1d': 24 * 60 * 60 * 1000,
-    };
-    return ms[interval] || ms['4h'];
   }
 
   async getTopGainers(minChange: number = 15, limit: number = 50): Promise<Ticker[]> {
@@ -125,9 +168,8 @@ export class BitgetAPI implements ExchangeAPI {
 
   async getFundingRate(symbol: string): Promise<{ rate: number; nextFundingTime: number }> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/api/v2/mix/market/current-funding-rate?productType=USDT-FUTURES&symbol=${symbol}`,
-        { next: { revalidate: 60 } }
+      const response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v2/mix/market/current-funding-rate?productType=USDT-FUTURES&symbol=${symbol}`
       );
 
       const data = await response.json();
@@ -141,16 +183,15 @@ export class BitgetAPI implements ExchangeAPI {
         nextFundingTime: parseInt(data.data.nextFundingTime || '0'),
       };
     } catch (error) {
-      console.error('Bitget getFundingRate error:', error);
+      console.error('Bitget getFundingRate error:', error instanceof Error ? error.message : error);
       return { rate: 0, nextFundingTime: 0 };
     }
   }
 
   async getOpenInterest(symbol: string): Promise<{ value: number; change24h: number }> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/api/v2/mix/market/open-interest?productType=USDT-FUTURES&symbol=${symbol}`,
-        { next: { revalidate: 60 } }
+      const response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v2/mix/market/open-interest?productType=USDT-FUTURES&symbol=${symbol}`
       );
 
       const data = await response.json();
@@ -164,7 +205,7 @@ export class BitgetAPI implements ExchangeAPI {
         change24h: parseFloat(data.data.openInterestChange24h || '0'),
       };
     } catch (error) {
-      console.error('Bitget getOpenInterest error:', error);
+      console.error('Bitget getOpenInterest error:', error instanceof Error ? error.message : error);
       return { value: 0, change24h: 0 };
     }
   }
