@@ -1,6 +1,6 @@
 # 📉 SHORT Scanner v2.1
 
-**Professional cryptocurrency SHORT setup scanner with Multi-TF analysis and Perpetual futures support.**
+**Cryptocurrency SHORT setup scanner with Multi-TF analysis and Perpetual futures support.**
 
 ![Version](https://img.shields.io/badge/version-2.1-blue)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
