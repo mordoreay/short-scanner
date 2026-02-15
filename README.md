@@ -253,14 +253,6 @@ GET /api/scanner
 Contributions are welcome! Feel free to:
 - Report bugs
 - Suggest features
-- Submit pull requests
 
 ---
 
-## 📄 License
-
-MIT License - feel free to use for personal or commercial projects.
-
----
-
-**Built for traders who prefer data over emotions.** 📉
