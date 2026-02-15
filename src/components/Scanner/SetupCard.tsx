@@ -1,6 +1,6 @@
 'use client';
 
-import { Candidate } from '@/types/scanner';
+import { Candidate, SetupType, Indicators } from '@/types/scanner';
 import { getTranslation, TranslationKeys } from '@/lib/i18n';
 import { Language } from '@/types/scanner';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -25,6 +25,136 @@ interface SetupCardProps {
   language: Language;
 }
 
+/**
+ * Determine trading style based on setup characteristics
+ * Scalping: Quick trades, high volatility, fake pumps, short timeframes
+ * Day Trading: Medium holds, moderate volatility, standard setups
+ * Swing: Long holds, structural breaks, low volatility, trend following
+ */
+type TradingStyle = 'scalping' | 'dayTrading' | 'swing';
+
+interface TradingStyleInfo {
+  style: TradingStyle;
+  label: string;
+  description: string;
+  holdTime: string;
+  color: string;
+  icon: string;
+}
+
+function determineTradingStyle(
+  setupType: SetupType,
+  indicators: Indicators,
+  riskReward: number,
+  priceChange24h: number
+): TradingStyleInfo {
+  let scalpingScore = 0;
+  let dayTradingScore = 0;
+  let swingScore = 0;
+
+  // 1. Setup type influence
+  if (setupType === 'fakePump') {
+    scalpingScore += 4; // Fake pumps reverse fast
+  } else if (setupType === 'rejection' || setupType === 'resistanceRejection') {
+    scalpingScore += 2;
+    dayTradingScore += 2;
+  } else if (setupType === 'structureBreak') {
+    swingScore += 3; // Structure breaks take time
+  } else if (setupType === 'divergence') {
+    dayTradingScore += 2;
+    swingScore += 1;
+  } else if (setupType === 'doubleTop') {
+    dayTradingScore += 2;
+    swingScore += 2;
+  } else if (setupType === 'oiDivergence') {
+    swingScore += 2;
+  }
+
+  // 2. Multi-TF alignment influence
+  const tf = indicators.multiTFAlignment;
+  if (tf.direction === 'mixed') {
+    dayTradingScore += 1; // Mixed = shorter holds
+  } else if (tf.direction === 'bearish' && tf.score >= 70) {
+    swingScore += 2; // Strong bearish alignment = swing
+  }
+
+  // 3. Entry timing influence
+  const entry = indicators.entryTiming;
+  if (entry.signal === 'enter_now' && entry.score >= 80) {
+    scalpingScore += 2; // Precise entry = quick trade
+  } else if (entry.signal === 'wait') {
+    swingScore += 1; // Wait for setup = patient trade
+  }
+
+  // 4. Volatility influence (ATR)
+  if (indicators.atr.volatility === 'high') {
+    scalpingScore += 2; // High volatility = quick moves
+  } else if (indicators.atr.volatility === 'low') {
+    swingScore += 2; // Low volatility = slow moves
+  }
+
+  // 5. Risk/Reward influence
+  if (riskReward >= 3) {
+    swingScore += 1; // High R:R = longer target
+  } else if (riskReward < 1.5) {
+    scalpingScore += 1; // Low R:R = quick scalp
+  }
+
+  // 6. Price change influence
+  if (priceChange24h > 40) {
+    scalpingScore += 2; // Extreme pump = quick reversal
+  } else if (priceChange24h > 25) {
+    dayTradingScore += 1;
+  }
+
+  // 7. 5m RSI influence
+  if (entry.rsi5m > 80) {
+    scalpingScore += 1; // Extreme overbought = quick reversal
+  }
+
+  // Determine winner
+  const total = scalpingScore + dayTradingScore + swingScore;
+  let style: TradingStyle;
+  
+  if (scalpingScore >= dayTradingScore && scalpingScore >= swingScore) {
+    style = 'scalping';
+  } else if (swingScore >= dayTradingScore) {
+    style = 'swing';
+  } else {
+    style = 'dayTrading';
+  }
+
+  // Return localized info
+  const styles: Record<TradingStyle, TradingStyleInfo> = {
+    scalping: {
+      style: 'scalping',
+      label: 'Скальпинг',
+      description: 'Быстрый вход/выход, высокие риски, краткосрочные цели',
+      holdTime: '15мин - 2ч',
+      color: 'bg-pink-500/20 text-pink-400 border-pink-500/50',
+      icon: '⚡',
+    },
+    dayTrading: {
+      style: 'dayTrading',
+      label: 'Дей-трейдинг',
+      description: 'Внутридневная торговля, средние цели, умеренные риски',
+      holdTime: '2ч - 1 день',
+      color: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
+      icon: '📈',
+    },
+    swing: {
+      style: 'swing',
+      label: 'Свинг',
+      description: 'Долгосрочная позиция, следование тренду, низкие риски',
+      holdTime: '1-7 дней',
+      color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+      icon: '🎯',
+    },
+  };
+
+  return styles[style];
+}
+
 const typeColors: Record<string, string> = {
   divergence: 'bg-purple-500/20 text-purple-400 border-purple-500/50',
   rejection: 'bg-red-500/20 text-red-400 border-red-500/50',
@@ -46,6 +176,14 @@ const recommendationColors: Record<string, string> = {
 
 export function SetupCard({ candidate, language }: SetupCardProps) {
   const t = getTranslation(language);
+
+  // Determine trading style
+  const tradingStyle = determineTradingStyle(
+    candidate.setup.type,
+    candidate.setup.indicators,
+    candidate.setup.riskReward,
+    candidate.priceChange24h
+  );
 
   const getScoreColor = (score: number) => {
     if (score >= 60) return 'text-green-400';
@@ -285,6 +423,39 @@ export function SetupCard({ candidate, language }: SetupCardProps) {
               </Tooltip>
             </TooltipProvider>
           </div>
+        </div>
+
+        {/* Trading Style */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/50">
+          <div className="text-2xl">{tradingStyle.icon}</div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Badge className={tradingStyle.color}>
+                {tradingStyle.label}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                ⏱ {tradingStyle.holdTime}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {tradingStyle.description}
+            </p>
+          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-xs text-muted-foreground cursor-help">
+                  ℹ️
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="text-xs">
+                  Стиль торговли определяется на основе типа сетапа, волатильности, 
+                  Multi-TF выравнивания и соотношения риск/прибыль.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {/* Indicators Grid */}

@@ -34,10 +34,12 @@ const getShortColor = (isGood: boolean | null) => {
 };
 
 export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
-  // Count bearish timeframes for Multi-TF
-  const tfArray = Object.values(indicators.multiTFAlignment.timeframes);
-  const bearishCount = tfArray.filter(tf => tf === 'bearish').length;
-  const bullishCount = tfArray.filter(tf => tf === 'bullish').length;
+  // Count bearish/bullish timeframes for Multi-TF (EXCLUDING 5m from scoring)
+  const tf = indicators.multiTFAlignment.timeframes;
+  const scoringTFs = [tf['15m'], tf['1h'], tf['2h'], tf['4h']];
+  const bearishCount = scoringTFs.filter(t => t === 'bearish').length;
+  const bullishCount = scoringTFs.filter(t => t === 'bullish').length;
+  const neutralCount = scoringTFs.filter(t => t === 'neutral').length;
 
   const indicatorItems = [
     // ========== OSCILLATORS: Number + Status ==========
@@ -150,19 +152,34 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
       ),
     },
 
-    // ========== MULTI-TF: Counter ==========
+    // ========== MULTI-TF: Weighted Score with 5 TF ==========
     {
       name: t.multiTFAlignment,
-      value: bearishCount >= 2 
-        ? `${bearishCount}/3 SHORT`
-        : bullishCount >= 2 
-          ? `${bullishCount}/3 NO`
-          : '1/3 MIX',
-      tooltip: `Multi-TF Alignment:\n15m: ${indicators.multiTFAlignment.timeframes['15m']}\n1h: ${indicators.multiTFAlignment.timeframes['1h']}\n4h: ${indicators.multiTFAlignment.timeframes['4h']}\n\n${bearishCount >= 2 ? 'Большинство таймфреймов медвежьи = хорошо для SHORT' : bullishCount >= 2 ? 'Большинство бычьи = плохо для SHORT' : 'Смешанные сигналы'}`,
+      value: indicators.multiTFAlignment.direction === 'bearish'
+        ? `${indicators.multiTFAlignment.score} SHORT`
+        : indicators.multiTFAlignment.direction === 'bullish'
+          ? `${indicators.multiTFAlignment.score} NO`
+          : `${indicators.multiTFAlignment.score} MIX`,
+      tooltip: `Multi-TF Alignment (Weighted):\n5m: ${tf['5m']} (display only)\n15m: ${tf['15m']} (10% weight)\n1h: ${tf['1h']} (20% weight)\n2h: ${tf['2h']} (30% weight)\n4h: ${tf['4h']} (40% weight)\n\nScore: ${indicators.multiTFAlignment.score}/100\n${bearishCount >= 3 ? 'Сильный медвежий тренд = отлично для SHORT' : bearishCount >= 2 ? 'Медвежий тренд = хорошо для SHORT' : bullishCount >= 3 ? 'Сильный бычий тренд = плохо для SHORT' : bullishCount >= 2 ? 'Бычий тренд = плохо для SHORT' : 'Смешанные сигналы'}`,
       color: getShortColor(
-        bearishCount >= 2 ? true :
-        bullishCount >= 2 ? false : null
+        indicators.multiTFAlignment.direction === 'bearish' ? true :
+        indicators.multiTFAlignment.direction === 'bullish' ? false : null
       ),
+    },
+    // ========== ENTRY TIMING: 5m-based ==========
+    {
+      name: 'Entry',
+      value: indicators.entryTiming.signal === 'enter_now'
+        ? `NOW ${GOOD}`
+        : indicators.entryTiming.signal === 'ready'
+          ? `${indicators.entryTiming.score}`
+          : `WAIT`,
+      tooltip: `Entry Timing (5m-based, NO impact on signal):\n5m RSI: ${indicators.entryTiming.rsi5m.toFixed(1)}\nQuality: ${indicators.entryTiming.quality}\nScore: ${indicators.entryTiming.score}/100\nMicro-div: ${indicators.entryTiming.divergence5m}\n\n${indicators.entryTiming.reason}\n\n${indicators.entryTiming.signal === 'enter_now' ? 'Оптимальный момент для входа!' : indicators.entryTiming.signal === 'ready' ? 'Хороший момент для входа' : 'Лучше подождать'}`,
+      color: indicators.entryTiming.signal === 'enter_now' 
+        ? 'text-green-400 font-bold' 
+        : indicators.entryTiming.signal === 'ready' 
+          ? 'text-yellow-400' 
+          : 'text-muted-foreground',
     },
 
     // ========== POSITION INDICATORS: Value + Status ==========

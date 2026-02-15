@@ -1,4 +1,4 @@
-import { Candle, Indicators, ShortScoreBreakdown, FundingRateIndicator, OpenInterestIndicator } from '@/types/scanner';
+import { Candle, Indicators, ShortScoreBreakdown, FundingRateIndicator, OpenInterestIndicator, EntryTimingIndicator } from '@/types/scanner';
 import { getRSIIndicator } from './rsi';
 import { getMACDIndicator, calculateEMA } from './macd';
 import { getBollingerBandsIndicator } from './bollinger';
@@ -225,12 +225,31 @@ export function getAllIndicators(
   const multiTFAlignment = {
     direction: ema.trend === 'bearish' ? 'bearish' as const : ema.trend === 'bullish' ? 'bullish' as const : 'mixed' as const,
     timeframes: {
+      '5m': 'neutral' as const,
       '15m': 'neutral' as const,
       '1h': 'neutral' as const,
+      '2h': 'neutral' as const,
       '4h': ema.trend,
       '1d': 'neutral' as const,
     },
     score: ema.trend === 'bearish' ? 75 : ema.trend === 'bullish' ? 25 : 50,
+    weights: {
+      '4h': 0.40,
+      '2h': 0.30,
+      '1h': 0.20,
+      '15m': 0.10,
+    },
+  };
+
+  // Entry Timing (placeholder for single-TF mode)
+  const entryTiming: EntryTimingIndicator = {
+    quality: 'good',
+    score: 50,
+    rsi5m: rsi.value,
+    divergence5m: 'none',
+    pullbackDepth: 50,
+    signal: 'ready',
+    reason: 'Single-TF mode - use Multi-TF for entry timing',
   };
 
   // Perpetual indicators
@@ -255,6 +274,7 @@ export function getAllIndicators(
     vwap,
     stochRsi,
     multiTFAlignment,
+    entryTiming,
     atr,
     fundingRate,
     openInterest,
@@ -262,11 +282,137 @@ export function getAllIndicators(
 }
 
 /**
+ * Calculate Entry Timing from 5m candles
+ * DOES NOT affect main signal - only refines entry point
+ */
+function calculateEntryTiming(
+  candles5m: Candle[],
+  candles15m: Candle[],
+  currentPrice: number,
+  entryZone: [number, number] | null
+): EntryTimingIndicator {
+  // Need at least 50 candles for 5m analysis
+  if (candles5m.length < 50) {
+    return {
+      quality: 'good',
+      score: 50,
+      rsi5m: 50,
+      divergence5m: 'none',
+      pullbackDepth: 50,
+      signal: 'ready',
+      reason: 'Insufficient 5m data',
+    };
+  }
+
+  // Get 5m RSI
+  const rsi5m = getRSIIndicator(candles5m);
+  const rsiValue = rsi5m.value;
+
+  // Check for 5m divergence (micro divergence)
+  const divergence5m = detectRSIDivergence(candles5m);
+  const microDiv = divergence5m.type;
+
+  // Get 5m trend for context
+  const trend5m = getTrendFromEMA(candles5m);
+
+  // Calculate pullback depth into entry zone
+  let pullbackDepth = 50;
+  if (entryZone && entryZone[1] > entryZone[0]) {
+    const range = entryZone[1] - entryZone[0];
+    if (range > 0) {
+      pullbackDepth = Math.min(100, Math.max(0, 
+        ((currentPrice - entryZone[0]) / range) * 100
+      ));
+    }
+  }
+
+  // Calculate quality score
+  // Optimal conditions for SHORT entry:
+  // 1. RSI 5m overbought (>70) or showing bearish divergence
+  // 2. Price in upper part of entry zone (pullbackDepth > 60%)
+  // 3. 5m trend not strongly bullish (avoid chasing)
+
+  let qualityScore = 50;
+  let signal: 'wait' | 'ready' | 'enter_now' = 'ready';
+  let reason = '';
+
+  // RSI contribution
+  if (rsiValue > 75) {
+    qualityScore += 20;
+    reason = '5m RSI overbought';
+  } else if (rsiValue > 65) {
+    qualityScore += 10;
+    reason = '5m RSI elevated';
+  } else if (rsiValue < 40) {
+    qualityScore -= 15;
+    reason = '5m RSI too low for short';
+  }
+
+  // Divergence contribution
+  if (microDiv === 'bearish') {
+    qualityScore += 15;
+    reason += reason ? ', bearish micro-div' : 'Bearish micro-divergence';
+  }
+
+  // Pullback depth contribution
+  if (pullbackDepth > 70) {
+    qualityScore += 15;
+    reason += ', good pullback';
+  } else if (pullbackDepth < 30) {
+    qualityScore -= 10;
+    reason += ', deep in zone';
+  }
+
+  // Trend context
+  if (trend5m === 'bearish') {
+    qualityScore += 10;
+    reason += ', 5m bearish';
+  } else if (trend5m === 'bullish') {
+    qualityScore -= 10;
+    reason += ', 5m bullish (caution)';
+  }
+
+  // Determine quality and signal
+  qualityScore = Math.min(100, Math.max(0, qualityScore));
+
+  let quality: 'optimal' | 'good' | 'early' | 'late';
+  if (qualityScore >= 80) {
+    quality = 'optimal';
+    signal = 'enter_now';
+  } else if (qualityScore >= 60) {
+    quality = 'good';
+    signal = 'ready';
+  } else if (qualityScore >= 40) {
+    quality = 'early';
+    signal = 'wait';
+  } else {
+    quality = 'late';
+    signal = 'wait';
+  }
+
+  return {
+    quality,
+    score: qualityScore,
+    rsi5m: Math.round(rsiValue * 10) / 10,
+    divergence5m: microDiv,
+    pullbackDepth: Math.round(pullbackDepth),
+    signal,
+    reason: reason.trim() || 'Standard entry conditions',
+  };
+}
+
+/**
  * Get all indicators with multi-timeframe analysis
+ * v2.1 - Extended TF pool: 5m, 15m, 1h, 2h, 4h
+ * 
+ * IMPORTANT: 5m is used ONLY for Entry Timing, NOT for signal generation
+ * This prevents noise while improving entry precision
  */
 export function getAllIndicatorsMultiTF(
+  candles5m: Candle[],
   candles15m: Candle[],
   candles1h: Candle[],
+  candles2h: Candle[],
   candles4h: Candle[],
   perpetualData?: {
     fundingRate?: number;
@@ -303,10 +449,14 @@ export function getAllIndicatorsMultiTF(
     volatility: atrData.percentage > 5 ? 'high' : atrData.percentage < 2 ? 'low' : 'normal' as const,
   };
 
-  // Get trends for each timeframe
+  // Get trends for each timeframe (EXCLUDING 5m from signal)
   const trend15m = getTrendFromEMA(candles15m);
   const trend1h = getTrendFromEMA(candles1h);
+  const trend2h = getTrendFromEMA(candles2h);
   const trend4h = getTrendFromEMA(candles4h);
+
+  // 5m trend for entry timing only (NOT for signal)
+  const trend5m = getTrendFromEMA(candles5m);
 
   // 4H Trend - use actual 4h candles
   const ema4h = getEMAIndicator(candles4h);
@@ -325,43 +475,64 @@ export function getAllIndicatorsMultiTF(
     mainCandles
   );
 
-  // Calculate Multi-TF Alignment score
-  // Bearish = good for short, Bullish = bad for short
-  let bearishCount = 0;
-  let bullishCount = 0;
-  
-  if (trend15m === 'bearish') bearishCount++;
-  if (trend1h === 'bearish') bearishCount++;
-  if (trend4h === 'bearish') bearishCount++;
-  
-  if (trend15m === 'bullish') bullishCount++;
-  if (trend1h === 'bullish') bullishCount++;
-  if (trend4h === 'bullish') bullishCount++;
+  // ==================== WEIGHTED Multi-TF Alignment ====================
+  // Weights: 4h=40%, 2h=30%, 1h=20%, 15m=10%
+  // 5m is EXCLUDED from scoring to avoid noise
+  const weights = {
+    '4h': 0.40,
+    '2h': 0.30,
+    '1h': 0.20,
+    '15m': 0.10,
+  };
 
+  // Calculate weighted score (0-100 scale)
+  // Bearish = +score (good for short), Bullish = -score (bad for short)
+  // Each TF can contribute up to 25 points * its weight
+  let weightedScore = 50; // Start neutral
+
+  // 4h contribution (40% weight = max 10 points)
+  if (trend4h === 'bearish') weightedScore += 25 * weights['4h'];
+  else if (trend4h === 'bullish') weightedScore -= 25 * weights['4h'];
+
+  // 2h contribution (30% weight = max 7.5 points)
+  if (trend2h === 'bearish') weightedScore += 25 * weights['2h'];
+  else if (trend2h === 'bullish') weightedScore -= 25 * weights['2h'];
+
+  // 1h contribution (20% weight = max 5 points)
+  if (trend1h === 'bearish') weightedScore += 25 * weights['1h'];
+  else if (trend1h === 'bullish') weightedScore -= 25 * weights['1h'];
+
+  // 15m contribution (10% weight = max 2.5 points)
+  if (trend15m === 'bearish') weightedScore += 25 * weights['15m'];
+  else if (trend15m === 'bullish') weightedScore -= 25 * weights['15m'];
+
+  // Determine direction
   let direction: 'bullish' | 'bearish' | 'mixed';
-  let score: number;
-
-  if (bearishCount >= 2) {
+  if (weightedScore >= 65) {
     direction = 'bearish';
-    score = 70 + (bearishCount === 3 ? 20 : 0); // 70-90
-  } else if (bullishCount >= 2) {
+  } else if (weightedScore <= 35) {
     direction = 'bullish';
-    score = 10 + (bullishCount === 3 ? 15 : 0); // 10-25
   } else {
     direction = 'mixed';
-    score = 40;
   }
 
   const multiTFAlignment = {
     direction,
     timeframes: {
+      '5m': trend5m,        // Included for display, NOT for scoring
       '15m': trend15m,
       '1h': trend1h,
+      '2h': trend2h,
       '4h': trend4h,
       '1d': 'neutral' as const,
     },
-    score,
+    score: Math.round(weightedScore),
+    weights,
   };
+
+  // Entry Timing from 5m (separate from signal)
+  const currentPrice = mainCandles[mainCandles.length - 1]?.close || 0;
+  const entryTiming = calculateEntryTiming(candles5m, candles15m, currentPrice, null);
 
   // Perpetual indicators
   const fundingRate = calculateFundingRateIndicator(perpetualData?.fundingRate);
@@ -385,6 +556,7 @@ export function getAllIndicatorsMultiTF(
     vwap,
     stochRsi,
     multiTFAlignment,
+    entryTiming,
     atr,
     fundingRate,
     openInterest,

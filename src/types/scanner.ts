@@ -1,6 +1,6 @@
 // Exchange types
 export type Exchange = 'bybit' | 'binance' | 'okx' | 'bitget' | 'gate' | 'kucoin' | 'mexc';
-export type Timeframe = '15m' | '1h' | '4h' | '1d';
+export type Timeframe = '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '1d';
 export type SortOption = 'confidence' | 'priceChange' | 'rsi' | 'shortScore' | 'volume';
 export type Language = 'ru' | 'en' | 'zn';
 
@@ -119,12 +119,31 @@ export interface StochRSIIndicator {
 export interface MultiTFAlignment {
   direction: 'bullish' | 'bearish' | 'mixed';
   timeframes: {
+    '5m': 'bullish' | 'bearish' | 'neutral';
     '15m': 'bullish' | 'bearish' | 'neutral';
     '1h': 'bullish' | 'bearish' | 'neutral';
+    '2h': 'bullish' | 'bearish' | 'neutral';
     '4h': 'bullish' | 'bearish' | 'neutral';
     '1d': 'bullish' | 'bearish' | 'neutral';
   };
   score: number;
+  weights: {
+    '4h': number;
+    '2h': number;
+    '1h': number;
+    '15m': number;
+  };
+}
+
+// Entry Timing Indicator (based on 5m + 15m - does NOT affect signal)
+export interface EntryTimingIndicator {
+  quality: 'optimal' | 'good' | 'early' | 'late';
+  score: number;           // 0-100
+  rsi5m: number;           // RSI on 5m
+  divergence5m: 'bullish' | 'bearish' | 'none';  // Micro divergence on 5m
+  pullbackDepth: number;   // How deep into entry zone (0-100%)
+  signal: 'wait' | 'ready' | 'enter_now';
+  reason: string;          // Explanation
 }
 
 export interface ATRIndicator {
@@ -164,6 +183,7 @@ export interface Indicators {
   vwap: VWAPIndicator;
   stochRsi: StochRSIIndicator;
   multiTFAlignment: MultiTFAlignment;
+  entryTiming: EntryTimingIndicator;  // 5m-based entry timing (no noise in signal)
   atr: ATRIndicator;
   // Perpetual specific
   fundingRate: FundingRateIndicator;

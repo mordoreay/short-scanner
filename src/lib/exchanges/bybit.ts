@@ -12,20 +12,30 @@ export class BybitAPI implements ExchangeAPI {
     try {
       // Use linear (USDT perpetual) category
       const response = await fetch(`${this.baseUrl}/v5/market/tickers?category=linear`, {
-        next: { revalidate: 60 }
+        next: { revalidate: 60 },
+        headers: {
+          'Accept': 'application/json',
+        }
       });
       
       if (!response.ok) {
-        throw new Error(`Bybit API error: ${response.status}`);
+        console.error(`Bybit API error: ${response.status}`);
+        return [];
       }
 
       const data = await response.json();
       
       if (data.retCode !== 0) {
-        throw new Error(`Bybit API error: ${data.retMsg}`);
+        console.error(`Bybit API error: ${data.retMsg}`);
+        return [];
       }
 
-      return data.result.list
+      if (!data.result?.list || !Array.isArray(data.result.list)) {
+        console.error('Bybit API: no tickers data');
+        return [];
+      }
+
+      const tickers = data.result.list
         .filter((item: { symbol: string }) => item.symbol.endsWith('USDT'))
         .map((item: {
           symbol: string;
@@ -54,8 +64,11 @@ export class BybitAPI implements ExchangeAPI {
           markPrice: item.markPrice ? parseFloat(item.markPrice) : undefined,
           indexPrice: item.indexPrice ? parseFloat(item.indexPrice) : undefined,
         }));
+
+      console.log(`Bybit: got ${tickers.length} tickers`);
+      return tickers;
     } catch (error) {
-      console.error('Bybit getTickers error:', error);
+      console.error('Bybit getTickers error:', error instanceof Error ? error.message : error);
       return [];
     }
   }
@@ -70,24 +83,34 @@ export class BybitAPI implements ExchangeAPI {
       };
 
       const bybitInterval = intervalMap[interval] || '240';
+      const url = `${this.baseUrl}/v5/market/kline?category=linear&symbol=${symbol}&interval=${bybitInterval}&limit=${limit}`;
       
       // Use linear category for perpetual
-      const response = await fetch(
-        `${this.baseUrl}/v5/market/kline?category=linear&symbol=${symbol}&interval=${bybitInterval}&limit=${limit}`,
-        { next: { revalidate: 30 } }
-      );
+      const response = await fetch(url, {
+        next: { revalidate: 30 },
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
 
       if (!response.ok) {
-        throw new Error(`Bybit klines error: ${response.status}`);
+        console.error(`Bybit klines error: ${response.status} for ${symbol}`);
+        return [];
       }
 
       const data = await response.json();
       
       if (data.retCode !== 0) {
-        throw new Error(`Bybit klines error: ${data.retMsg}`);
+        console.error(`Bybit klines error: ${data.retMsg} for ${symbol}`);
+        return [];
       }
 
-      return data.result.list
+      if (!data.result?.list || !Array.isArray(data.result.list)) {
+        console.error(`Bybit klines: no data for ${symbol}`);
+        return [];
+      }
+
+      const candles = data.result.list
         .map((item: string[]) => ({
           timestamp: parseInt(item[0]),
           open: parseFloat(item[1]),
@@ -97,8 +120,11 @@ export class BybitAPI implements ExchangeAPI {
           volume: parseFloat(item[5]),
         }))
         .reverse();
+      
+      console.log(`Bybit ${symbol}: got ${candles.length} candles for ${interval}`);
+      return candles;
     } catch (error) {
-      console.error('Bybit getKlines error:', error);
+      console.error('Bybit getKlines error:', error instanceof Error ? error.message : error);
       return [];
     }
   }

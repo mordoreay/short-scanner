@@ -549,7 +549,7 @@ function calculateTradeLevels(
   indicators: ReturnType<typeof getAllIndicators>,
   setupType: SetupType,
   priceChange24h: number,
-  t: Translations
+  language: Language
 ): {
   entryZone: [number, number];
   stopLoss: number;
@@ -928,18 +928,24 @@ export async function GET(request: NextRequest) {
 
     // Analyze each ticker with multi-timeframe analysis
     const candidates: Candidate[] = [];
+    let skippedNoCandles = 0;
+    let skippedLowScore = 0;
     
     for (const ticker of tickers.slice(0, 30)) {
       try {
-        // Fetch candles for all timeframes in parallel
-        const [candles15m, candles1h, candles4h] = await Promise.all([
-          exchangeAPI.getKlines(ticker.symbol, '15m', 200),
-          exchangeAPI.getKlines(ticker.symbol, '1h', 300),
-          exchangeAPI.getKlines(ticker.symbol, '4h', 300),
+        // Fetch candles for ALL timeframes in parallel (v2.1: 5 TF pool)
+        const [candles5m, candles15m, candles1h, candles2h, candles4h] = await Promise.all([
+          exchangeAPI.getKlines(ticker.symbol, '5m', 100),   // Entry timing only
+          exchangeAPI.getKlines(ticker.symbol, '15m', 200),  // Short-term trend (10%)
+          exchangeAPI.getKlines(ticker.symbol, '1h', 300),   // Main analysis (20%)
+          exchangeAPI.getKlines(ticker.symbol, '2h', 200),   // Trend bridge (30%)
+          exchangeAPI.getKlines(ticker.symbol, '4h', 300),   // Structure trend (40%)
         ]);
         
-        // Need at least 1h or 4h data
+        // Need at least 1h or 4h data for main analysis
         if (candles1h.length < 100 && candles4h.length < 100) {
+          skippedNoCandles++;
+          console.log(`[SKIP] ${ticker.symbol}: insufficient candles (5m:${candles5m.length}, 15m:${candles15m.length}, 1h:${candles1h.length}, 2h:${candles2h.length}, 4h:${candles4h.length})`);
           continue;
         }
 
@@ -963,8 +969,8 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Use multi-TF analysis with perpetual data
-        const indicators = getAllIndicatorsMultiTF(candles15m, candles1h, candles4h, {
+        // Use multi-TF analysis with perpetual data (v2.1: 5 TF pool)
+        const indicators = getAllIndicatorsMultiTF(candles5m, candles15m, candles1h, candles2h, candles4h, {
           fundingRate: fundingRateData.rate || ticker.fundingRate,
           openInterest: openInterestData.value || ticker.openInterest,
           oiChange24h: openInterestData.change24h,
@@ -994,7 +1000,7 @@ export async function GET(request: NextRequest) {
         const setup: Setup = {
           ...setupType,
           ...tradeLevels,
-          timeframe: 'Multi-TF (15m/1h/4h)',
+          timeframe: 'Multi-TF (5m/15m/1h/2h/4h)',
           reasoning,
           keyLevels,
           warningSignals,
@@ -1015,13 +1021,19 @@ export async function GET(request: NextRequest) {
           analysis,
           recommendation,
         });
+        
+        console.log(`[OK] ${ticker.symbol}: score=${shortScore.total}, confidence=${setup.confidence}, recommendation=${recommendation}, pattern=${setupType.pattern}`);
       } catch (error) {
         console.error(`Error analyzing ${ticker.symbol}:`, error);
         continue;
       }
     }
 
+    console.log(`[SUMMARY] Total candidates: ${candidates.length}, Skipped (no candles): ${skippedNoCandles}`);
+    console.log(`[FILTERS] minConfidence=${filters.minConfidence}, minPriceChange=${filters.minPriceChange}`);
+
     const filteredCandidates = filterCandidates(candidates, filters);
+    console.log(`[AFTER FILTER] ${filteredCandidates.length} candidates passed filters`);
     const sortedCandidates = sortCandidates(filteredCandidates, sortBy);
 
     return NextResponse.json({
