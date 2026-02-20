@@ -1,0 +1,302 @@
+@startuml SHORT_Scanner_Activity
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+title Диаграмма активности SHORT Scanner
+
+start
+
+partition "Инициализация" #E3F2FD {
+    :Получить параметры запроса;
+    note right
+        exchange: bybit/binance
+        timeframe: 4h
+        minChange: 15%
+        sortBy: confidence
+        language: ru/en
+    end note
+    
+    :Инициализировать фильтры;
+    :Получить API биржи;
+}
+
+partition "Получение данных" #E8F5E9 {
+    :Запросить Top Gainers;
+    
+    if (Gainers найдены?) then (Да)
+        :Выбрать топ-30 gainers;
+    else (Нет)
+        :Вернуть пустой результат;
+        stop
+    endif
+}
+
+partition "Анализ тикеров (цикл)" #FFF3E0 {
+    while (Есть тикеры для анализа?) is (Да)
+        :Получить тикер;
+        
+        partition "Параллельная загрузка данных" #E1F5FE {
+            fork
+                :Загрузить свечи 5m (100);
+            fork again
+                :Загрузить свечи 15m (200);
+            fork again
+                :Загрузить свечи 1h (300);
+            fork again
+                :Загрузить свечи 2h (200);
+            fork again
+                :Загрузить свечи 4h (300);
+            fork again
+                :Загрузить Funding Rate;
+            fork again
+                :Загрузить Funding Rate History;
+            fork again
+                :Загрузить Open Interest;
+            fork again
+                :Загрузить Long/Short Ratio;
+            fork again
+                :Загрузить Top Traders Ratio;
+            fork again
+                :Загрузить Order Book;
+            fork again
+                :Загрузить Liquidation Heatmap;
+            end fork
+        }
+        
+        if (Достаточно свечей?) then (Да)
+            partition "Расчёт индикаторов" #FCE4EC {
+                :Вычислить RSI (14);
+                :Проверить дивергенцию RSI;
+                :Вычислить MACD;
+                :Проверить дивергенцию MACD;
+                :Вычислить EMA (9, 21, 50, 200);
+                :Определить тренд EMA;
+                :Проверить кроссовер EMA;
+                :Вычислить Полосы Боллинджера;
+                :Вычислить VWAP;
+                :Вычислить ATR;
+                :Вычислить ADX;
+                
+                partition "Мульти-TF анализ" {
+                    :Взвесить тренды по TF;
+                    note right
+                        5m: 10% (вход)
+                        15m: 10%
+                        1h: 20% (основной)
+                        2h: 30%
+                        4h: 40% (структура)
+                    end note
+                    :Определить направление;
+                    :Рассчитать score;
+                }
+                
+                partition "Perpetual анализ" {
+                    :Интерпретировать Funding Rate;
+                    :Интерпретировать OI;
+                    :Интерпретировать Long/Short Ratio;
+                    :Интерпретировать Top Traders;
+                }
+                
+                partition "Order Flow анализ" {
+                    :Рассчитать дисбаланс Order Book;
+                    :Найти стены заявок;
+                    :Проанализировать Liquidation Heatmap;
+                }
+                
+                partition "Детекция паттернов" {
+                    :Проверить Fake Pump;
+                    note right
+                        Признаки:
+                        - Рост цены без объёма
+                        - RSI перекуплен
+                        - Дивергенция
+                        - Низкий OI при росте
+                    end note
+                    
+                    :Проверить структуру тренда;
+                    :Проверить двойную вершину;
+                }
+            }
+            
+            partition "Определение TIER" #E8EAF6 {
+                :Рассчитать ATR 24h;
+                :Рассчитать ATR 7d;
+                :Рассчитать ATR 14d;
+                :Рассчитать Volume Ratio;
+                
+                if (В списке Override?) then (Да)
+                    :Получить TIER из списка;
+                    if (Экстремальная волатильность?) then (Да)
+                        :Скорректировать TIER;
+                    endif
+                else (Нет)
+                    :Определить Base TIER по ATR 14d;
+                    :Определить Current TIER по ATR 24h;
+                    :Определить Price Change TIER;
+                    
+                    :Комбинировать TIER;
+                    note right
+                        Формула:
+                        = Base×0.5 + Current×0.3 + PriceChange×0.2
+                    end note
+                endif
+                
+                if (Volume Ratio > 3x и ATR < 5%?) then (Да)
+                    :Повысить TIER минимум до 2;
+                    :confidence -= 10%;
+                    note right
+                        Volume spike при низком ATR
+                        = подозрительно
+                    end note
+                elseif (Volume Ratio > 5x?) then (Да)
+                    :Повысить TIER минимум до 2;
+                    :confidence -= 5%;
+                elseif (Volume Ratio < 0.3x?) then (Да)
+                    :confidence -= 15%;
+                    note right
+                        Низкий объём = ловушка
+                    end note
+                elseif (Volume 0.7-2x?) then (Да)
+                    :confidence += 5%;
+                elseif (Volume > 2x и ATR > 10%?) then (Да)
+                    :confidence += 10%;
+                    note right
+                        Высокий объём подтверждает
+                        высокую волатильность
+                    end note
+                endif
+                
+                if (Монета новая < 50 свечей?) then (Да)
+                    :Флаг isNewCoin = true;
+                    :confidence -= 20%;
+                endif
+                
+                :Получить конфиг TIER;
+            }
+            
+            partition "Расчёт SHORT Score" #FCE4EC {
+                :Применить пороги TIER конфига;
+                
+                :Оценить Price Change;
+                note right
+                    TIER 1: extreme=20%, strong=15%
+                    TIER 2: extreme=35%, strong=25%
+                    TIER 3: extreme=50%, strong=35%
+                end note
+                
+                :Оценить RSI;
+                :Оценить Bollinger Bands;
+                :Оценить VWAP;
+                :Оценить Funding Rate;
+                :Оценить Long/Short Ratio;
+                :Оценить Top Traders;
+                :Оценить Multi-TF Alignment;
+                :Оценить Open Interest;
+                :Оценить Order Flow;
+                
+                :Суммировать баллы;
+                note right
+                    Total = Σ(factor × weight)
+                    Max = 100
+                end note
+            }
+            
+            partition "Определение сетапа" #E1F5FE {
+                :Проверить OI Divergence;
+                :Проверить RSI/MACD Divergence;
+                :Проверить Fake Pump;
+                :Проверить Structure Break;
+                :Проверить Double Top;
+                :Проверить Resistance Rejection;
+                :Проверить Rejection (BB+RSI);
+                :Проверить EMA Breakout;
+                
+                :Отсортировать по приоритету;
+                :Выбрать лучший сетап;
+                
+                if (Нет сильного сетапа?) then (Да)
+                    :Установить Mean Reversion;
+                endif
+                
+                :Рассчитать уверенность;
+            }
+            
+            partition "Расчёт торговых уровней" #F3E5F5 {
+                :Рассчитать Entry Zone;
+                note right
+                    Зависит от типа сетапа:
+                    - Divergence: текущая или EMA21
+                    - FakePump: быстро на текущей
+                    - Structure: на ретесте
+                end note
+                
+                :Рассчитать Stop Loss;
+                note right
+                    Минимум 2 ATR от входа
+                    За ключевым сопротивлением
+                    (High 24h, BB Upper, VWAP)
+                end note
+                
+                :Рассчитать Take Profit 1;
+                note right
+                    Цель: 2R или структура
+                    (BB Middle, EMA50, Low 24h)
+                end note
+                
+                :Рассчитать Take Profit 2;
+                note right
+                    Цель: 3R или структура
+                    (BB Lower)
+                end note
+                
+                :Рассчитать R:R ratio;
+                :Рассчитать Breakeven уровни;
+            }
+            
+            partition "Генерация текстов" #ECEFF1 {
+                :Сгенерировать предупреждения;
+                :Сгенерировать обоснование;
+                :Сгенерировать анализ;
+                :Определить рекомендацию;
+                note right
+                    enter: score >= 50 AND RSI >= 65
+                    wait: score >= 30
+                    skip: score < 30
+                end note
+            }
+            
+            :Добавить кандидата в список;
+            :Логировать результат;
+            
+        else (Нет - недостаточно свечей)
+            :Пропустить тикер;
+            :Логировать [SKIP];
+        endif
+    endwhile (Нет)
+}
+
+partition "Фильтрация и сортировка" #FFEBEE {
+    :Применить фильтры;
+    note right
+        minConfidence
+        minPriceChange
+        onlyRsiDivergence
+        hideFakePump
+    end note
+    
+    :Отсортировать кандидатов;
+    note right
+        По: confidence / score / 
+        priceChange / RSI / volume
+    end note
+}
+
+:Сформировать ответ;
+:Логировать итоги;
+:Вернуть JSON;
+
+stop
+
+@enduml

@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  id="Definitions_ShortScanner"
+  targetNamespace="http://bpmn.io/schema/bpmn"
+  exporter="SHORT Scanner"
+  exporterVersion="3.0">
+  
+  <bpmn:process id="ShortScanner" name="SHORT Scanner - Полный процесс" isExecutable="false">
+    
+    <!-- ==================== НАЧАЛО ==================== -->
+    <bpmn:startEvent id="Start" name="Запуск сканирования"/>
+    
+    <!-- ==================== ЭТАП 1: ИНИЦИАЛИЗАЦИЯ ==================== -->
+    <bpmn:subProcess id="InitPhase" name="Этап 1: Инициализация">
+      <bpmn:startEvent id="InitStart" name="Начало инициализации"/>
+      
+      <bpmn:task id="GetParams" name="Получить параметры запроса&#10;(exchange, minChange, sortBy, language)"/>
+      <bpmn:task id="InitFilters" name="Инициализировать фильтры&#10;(minConfidence, minPriceChange,&#10;onlyRsiDivergence, hideFakePump)"/>
+      <bpmn:task id="GetAPI" name="Получить API биржи&#10;(Bybit/Binance)"/>
+      
+      <bpmn:endEvent id="InitEnd" name="Инициализация завершена"/>
+      
+      <bpmn:sequenceFlow id="i1" sourceRef="InitStart" targetRef="GetParams"/>
+      <bpmn:sequenceFlow id="i2" sourceRef="GetParams" targetRef="InitFilters"/>
+      <bpmn:sequenceFlow id="i3" sourceRef="InitFilters" targetRef="GetAPI"/>
+      <bpmn:sequenceFlow id="i4" sourceRef="GetAPI" targetRef="InitEnd"/>
+    </bpmn:subProcess>
+    
+    <!-- ==================== ЭТАП 2: ПОЛУЧЕНИЕ ДАННЫХ ==================== -->
+    <bpmn:subProcess id="DataPhase" name="Этап 2: Получение данных">
+      <bpmn:startEvent id="DataStart" name="Начало получения данных"/>
+      
+      <bpmn:task id="GetGainers" name="Запросить Top Gainers&#10;с биржи (топ-30)"/>
+      
+      <bpmn:exclusiveGateway id="CheckGainers" name="Gainers найдены?"/>
+      
+      <bpmn:endEvent id="DataEnd" name="Данные получены"/>
+      <bpmn:endEvent id="NoDataEnd" name="Нет данных"/>
+      
+      <bpmn:sequenceFlow id="d1" sourceRef="DataStart" targetRef="GetGainers"/>
+      <bpmn:sequenceFlow id="d2" sourceRef="GetGainers" targetRef="CheckGainers"/>
+      <bpmn:sequenceFlow id="d3" sourceRef="CheckGainers" targetRef="DataEnd">
+        <bpmn:conditionExpression>gainers.length > 0</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="d4" sourceRef="CheckGainers" targetRef="NoDataEnd">
+        <bpmn:conditionExpression>gainers.length == 0</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+    </bpmn:subProcess>
+    
+    <!-- ==================== ЭТАП 3: АНАЛИЗ ТИКЕРОВ ==================== -->
+    <bpmn:subProcess id="AnalysisPhase" name="Этап 3: Анализ тикеров (цикл)">
+      <bpmn:startEvent id="AnalysisStart" name="Начало анализа"/>
+      
+      <!-- Параллельная загрузка -->
+      <bpmn:parallelGateway id="FetchParallel" name="Параллельная загрузка"/>
+      
+      <bpmn:task id="Fetch5m" name="Свечи 5m (100)&#10;Тайминг входа"/>
+      <bpmn:task id="Fetch15m" name="Свечи 15m (200)&#10;Краткосрочный тренд"/>
+      <bpmn:task id="Fetch1h" name="Свечи 1h (300)&#10;Основной анализ"/>
+      <bpmn:task id="Fetch2h" name="Свечи 2h (200)&#10;Мост тренда"/>
+      <bpmn:task id="Fetch4h" name="Свечи 4h (300)&#10;Структура тренда"/>
+      <bpmn:task id="FetchFunding" name="Funding Rate&#10;+ история (8 периодов)"/>
+      <bpmn:task id="FetchOI" name="Open Interest&#10;+ изменение 24h"/>
+      <bpmn:task id="FetchLS" name="Long/Short Ratio"/>
+      <bpmn:task id="FetchTopTraders" name="Top Traders Ratio"/>
+      <bpmn:task id="FetchOrderBook" name="Order Book&#10;(биды/аски)"/>
+      <bpmn:task id="FetchLiq" name="Liquidation Heatmap"/>
+      
+      <bpmn:parallelGateway id="FetchJoin" name="Синхронизация"/>
+      
+      <bpmn:exclusiveGateway id="CheckCandles" name="Достаточно свечей?"/>
+      
+      <!-- ПОДСИСТЕМА ИНДИКАТОРОВ -->
+      <bpmn:subProcess id="IndicatorsSub" name="Подсистема: Технические индикаторы">
+        <bpmn:startEvent id="IndStart" name="Начало расчёта"/>
+        
+        <bpmn:task id="CalcRSI" name="RSI (14)&#10;+ дивергенция"/>
+        <bpmn:task id="CalcMACD" name="MACD&#10;+ кроссовер + дивергенция"/>
+        <bpmn:task id="CalcEMA" name="EMA (9, 21, 50, 200)&#10;тренд + кроссовер"/>
+        <bpmn:task id="CalcBB" name="Полосы Боллинджера&#10;позиция + сигнал"/>
+        <bpmn:task id="CalcVWAP" name="VWAP&#10;отклонение + сигнал"/>
+        <bpmn:task id="CalcATR" name="ATR&#10;волатильность"/>
+        <bpmn:task id="CalcADX" name="ADX&#10;сила тренда"/>
+        <bpmn:task id="CalcMultiTF" name="Multi-TF Alignment&#10;5 TF взвешивание"/>
+        <bpmn:task id="CalcPatterns" name="Детекция паттернов&#10;(FakePump, структура)"/>
+        
+        <bpmn:endEvent id="IndEnd" name="Индикаторы готовы"/>
+        
+        <bpmn:sequenceFlow id="in1" sourceRef="IndStart" targetRef="CalcRSI"/>
+        <bpmn:sequenceFlow id="in2" sourceRef="CalcRSI" targetRef="CalcMACD"/>
+        <bpmn:sequenceFlow id="in3" sourceRef="CalcMACD" targetRef="CalcEMA"/>
+        <bpmn:sequenceFlow id="in4" sourceRef="CalcEMA" targetRef="CalcBB"/>
+        <bpmn:sequenceFlow id="in5" sourceRef="CalcBB" targetRef="CalcVWAP"/>
+        <bpmn:sequenceFlow id="in6" sourceRef="CalcVWAP" targetRef="CalcATR"/>
+        <bpmn:sequenceFlow id="in7" sourceRef="CalcATR" targetRef="CalcADX"/>
+        <bpmn:sequenceFlow id="in8" sourceRef="CalcADX" targetRef="CalcMultiTF"/>
+        <bpmn:sequenceFlow id="in9" sourceRef="CalcMultiTF" targetRef="CalcPatterns"/>
+        <bpmn:sequenceFlow id="in10" sourceRef="CalcPatterns" targetRef="IndEnd"/>
+      </bpmn:subProcess>
+      
+      <!-- ПОДСИСТЕМА TIER -->
+      <bpmn:subProcess id="TierSub" name="Подсистема: TIER-классификация">
+        <bpmn:startEvent id="TierStart" name="Начало определения"/>
+        
+        <bpmn:task id="CalcVolMetrics" name="Расчёт метрик&#10;ATR 24h/7d/14d&#10;Volume Ratio"/>
+        
+        <bpmn:exclusiveGateway id="CheckOverride" name="В Override списке?"/>
+        
+        <bpmn:task id="GetOverride" name="Получить TIER из списка&#10;(PEPE, WIF, BONK... = TIER 3)"/>
+        
+        <bpmn:task id="CalcBaseTier" name="Base TIER&#10;(ATR 14d, вес 50%)"/>
+        <bpmn:task id="CalcCurrTier" name="Current TIER&#10;(ATR 24h, вес 30%)"/>
+        <bpmn:task id="CalcPriceTier" name="Price Change TIER&#10;(вес 20%)"/>
+        <bpmn:task id="CombineTier" name="Комбинировать TIER&#10;взвешенная формула"/>
+        
+        <bpmn:exclusiveGateway id="CheckVolume" name="Volume adjustment?"/>
+        
+        <bpmn:task id="AdjustVolume" name="Корректировка по Volume&#10;(spike → min TIER 2,&#10;low → confidence -15%)"/>
+        
+        <bpmn:exclusiveGateway id="CheckNewCoin" name="Новая монета?"/>
+        
+        <bpmn:task id="MarkNewCoin" name="Флаг isNewCoin&#10;confidence -20%"/>
+        
+        <bpmn:task id="GetTierConfig" name="Получить конфиг TIER&#10;(пороги для score)"/>
+        
+        <bpmn:endEvent id="TierEnd" name="TIER определён"/>
+        
+        <bpmn:sequenceFlow id="t1" sourceRef="TierStart" targetRef="CalcVolMetrics"/>
+        <bpmn:sequenceFlow id="t2" sourceRef="CalcVolMetrics" targetRef="CheckOverride"/>
+        <bpmn:sequenceFlow id="t3" sourceRef="CheckOverride" targetRef="GetOverride">
+          <bpmn:conditionExpression>в списке</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="t4" sourceRef="CheckOverride" targetRef="CalcBaseTier">
+          <bpmn:conditionExpression>не в списке</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="t5" sourceRef="GetOverride" targetRef="CheckVolume"/>
+        <bpmn:sequenceFlow id="t6" sourceRef="CalcBaseTier" targetRef="CalcCurrTier"/>
+        <bpmn:sequenceFlow id="t7" sourceRef="CalcCurrTier" targetRef="CalcPriceTier"/>
+        <bpmn:sequenceFlow id="t8" sourceRef="CalcPriceTier" targetRef="CombineTier"/>
+        <bpmn:sequenceFlow id="t9" sourceRef="CombineTier" targetRef="CheckVolume"/>
+        <bpmn:sequenceFlow id="t10" sourceRef="CheckVolume" targetRef="AdjustVolume">
+          <bpmn:conditionExpression>vol > 3x OR vol < 0.3x</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="t11" sourceRef="CheckVolume" targetRef="CheckNewCoin">
+          <bpmn:conditionExpression>нормальный</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="t12" sourceRef="AdjustVolume" targetRef="CheckNewCoin"/>
+        <bpmn:sequenceFlow id="t13" sourceRef="CheckNewCoin" targetRef="MarkNewCoin">
+          <bpmn:conditionExpression>&lt; 50 свечей</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="t14" sourceRef="CheckNewCoin" targetRef="GetTierConfig">
+          <bpmn:conditionExpression>≥ 50 свечей</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="t15" sourceRef="MarkNewCoin" targetRef="GetTierConfig"/>
+        <bpmn:sequenceFlow id="t16" sourceRef="GetTierConfig" targetRef="TierEnd"/>
+      </bpmn:subProcess>
+      
+      <!-- ПОДСИСТЕМА СКОРИНГА -->
+      <bpmn:subProcess id="ScoreSub" name="Подсистема: SHORT Score">
+        <bpmn:startEvent id="ScoreStart" name="Начало расчёта"/>
+        
+        <bpmn:task id="ScorePriceChange" name="Score: Price Change&#10;(по порогам TIER)"/>
+        <bpmn:task id="ScoreRSI" name="Score: RSI&#10;+ дивергенция"/>
+        <bpmn:task id="ScoreBB" name="Score: Bollinger Bands"/>
+        <bpmn:task id="ScoreVWAP" name="Score: VWAP"/>
+        <bpmn:task id="ScoreFunding" name="Score: Funding Rate"/>
+        <bpmn:task id="ScoreLS" name="Score: Long/Short Ratio"/>
+        <bpmn:task id="ScoreTopTraders" name="Score: Top Traders"/>
+        <bpmn:task id="ScoreMultiTF" name="Score: Multi-TF Alignment"/>
+        <bpmn:task id="ScoreOI" name="Score: Open Interest"/>
+        <bpmn:task id="ScoreOrderFlow" name="Score: Order Flow"/>
+        <bpmn:task id="SumScore" name="Суммировать Score&#10;(макс 100)"/>
+        
+        <bpmn:endEvent id="ScoreEnd" name="Score рассчитан"/>
+        
+        <bpmn:sequenceFlow id="s1" sourceRef="ScoreStart" targetRef="ScorePriceChange"/>
+        <bpmn:sequenceFlow id="s2" sourceRef="ScorePriceChange" targetRef="ScoreRSI"/>
+        <bpmn:sequenceFlow id="s3" sourceRef="ScoreRSI" targetRef="ScoreBB"/>
+        <bpmn:sequenceFlow id="s4" sourceRef="ScoreBB" targetRef="ScoreVWAP"/>
+        <bpmn:sequenceFlow id="s5" sourceRef="ScoreVWAP" targetRef="ScoreFunding"/>
+        <bpmn:sequenceFlow id="s6" sourceRef="ScoreFunding" targetRef="ScoreLS"/>
+        <bpmn:sequenceFlow id="s7" sourceRef="ScoreLS" targetRef="ScoreTopTraders"/>
+        <bpmn:sequenceFlow id="s8" sourceRef="ScoreTopTraders" targetRef="ScoreMultiTF"/>
+        <bpmn:sequenceFlow id="s9" sourceRef="ScoreMultiTF" targetRef="ScoreOI"/>
+        <bpmn:sequenceFlow id="s10" sourceRef="ScoreOI" targetRef="ScoreOrderFlow"/>
+        <bpmn:sequenceFlow id="s11" sourceRef="ScoreOrderFlow" targetRef="SumScore"/>
+        <bpmn:sequenceFlow id="s12" sourceRef="SumScore" targetRef="ScoreEnd"/>
+      </bpmn:subProcess>
+      
+      <!-- ПОДСИСТЕМА СЕТАПОВ -->
+      <bpmn:subProcess id="SetupSub" name="Подсистема: Определение сетапа">
+        <bpmn:startEvent id="SetupStart" name="Начало определения"/>
+        
+        <bpmn:task id="DetectOI_Div" name="OI Divergence&#10;(цена ↑, OI ↓)"/>
+        <bpmn:task id="DetectDivergence" name="RSI/MACD Divergence&#10;(медвежья)"/>
+        <bpmn:task id="DetectFakePump" name="Fake Pump&#10;(памп без объёма)"/>
+        <bpmn:task id="DetectStructure" name="Structure Break&#10;(слом тренда)"/>
+        <bpmn:task id="DetectDoubleTop" name="Double Top&#10;(двойная вершина)"/>
+        <bpmn:task id="DetectRejection" name="Resistance Rejection&#10;(отказ от сопротивления)"/>
+        <bpmn:task id="DetectRejBB" name="Rejection (BB+RSI)&#10;(отскок от полосы)"/>
+        <bpmn:task id="DetectBreakout" name="EMA Breakout&#10;(медвежий кроссовер)"/>
+        
+        <bpmn:task id="SelectSetup" name="Выбрать лучший&#10;по приоритету"/>
+        
+        <bpmn:exclusiveGateway id="CheckSetupStrength" name="Сильный сетап?"/>
+        
+        <bpmn:task id="SetMeanReversion" name="Mean Reversion&#10;(по умолчанию)"/>
+        
+        <bpmn:task id="CalcConfidence" name="Рассчитать уверенность"/>
+        
+        <bpmn:endEvent id="SetupEnd" name="Сетап определён"/>
+        
+        <bpmn:sequenceFlow id="su1" sourceRef="SetupStart" targetRef="DetectOI_Div"/>
+        <bpmn:sequenceFlow id="su2" sourceRef="DetectOI_Div" targetRef="DetectDivergence"/>
+        <bpmn:sequenceFlow id="su3" sourceRef="DetectDivergence" targetRef="DetectFakePump"/>
+        <bpmn:sequenceFlow id="su4" sourceRef="DetectFakePump" targetRef="DetectStructure"/>
+        <bpmn:sequenceFlow id="su5" sourceRef="DetectStructure" targetRef="DetectDoubleTop"/>
+        <bpmn:sequenceFlow id="su6" sourceRef="DetectDoubleTop" targetRef="DetectRejection"/>
+        <bpmn:sequenceFlow id="su7" sourceRef="DetectRejection" targetRef="DetectRejBB"/>
+        <bpmn:sequenceFlow id="su8" sourceRef="DetectRejBB" targetRef="DetectBreakout"/>
+        <bpmn:sequenceFlow id="su9" sourceRef="DetectBreakout" targetRef="SelectSetup"/>
+        <bpmn:sequenceFlow id="su10" sourceRef="SelectSetup" targetRef="CheckSetupStrength"/>
+        <bpmn:sequenceFlow id="su11" sourceRef="CheckSetupStrength" targetRef="CalcConfidence">
+          <bpmn:conditionExpression>есть сетап</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="su12" sourceRef="CheckSetupStrength" targetRef="SetMeanReversion">
+          <bpmn:conditionExpression>нет сильного</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="su13" sourceRef="SetMeanReversion" targetRef="CalcConfidence"/>
+        <bpmn:sequenceFlow id="su14" sourceRef="CalcConfidence" targetRef="SetupEnd"/>
+      </bpmn:subProcess>
+      
+      <!-- ПОДСИСТЕМА ТОРГОВЫХ УРОВНЕЙ -->
+      <bpmn:subProcess id="LevelsSub" name="Подсистема: Торговые уровни">
+        <bpmn:startEvent id="LevelsStart" name="Начало расчёта"/>
+        
+        <bpmn:task id="CalcEntry" name="Entry Zone&#10;(зависит от типа сетапа)"/>
+        <bpmn:task id="CalcSL" name="Stop Loss&#10;(мин 2 ATR, за сопротивлением)"/>
+        <bpmn:task id="CalcTP1" name="Take Profit 1&#10;(2R или структура)"/>
+        <bpmn:task id="CalcTP2" name="Take Profit 2&#10;(3R или структура)"/>
+        <bpmn:task id="CalcRR" name="Risk/Reward Ratio"/>
+        <bpmn:task id="CalcBE" name="Breakeven уровни"/>
+        
+        <bpmn:endEvent id="LevelsEnd" name="Уровни рассчитаны"/>
+        
+        <bpmn:sequenceFlow id="l1" sourceRef="LevelsStart" targetRef="CalcEntry"/>
+        <bpmn:sequenceFlow id="l2" sourceRef="CalcEntry" targetRef="CalcSL"/>
+        <bpmn:sequenceFlow id="l3" sourceRef="CalcSL" targetRef="CalcTP1"/>
+        <bpmn:sequenceFlow id="l4" sourceRef="CalcTP1" targetRef="CalcTP2"/>
+        <bpmn:sequenceFlow id="l5" sourceRef="CalcTP2" targetRef="CalcRR"/>
+        <bpmn:sequenceFlow id="l6" sourceRef="CalcRR" targetRef="CalcBE"/>
+        <bpmn:sequenceFlow id="l7" sourceRef="CalcBE" targetRef="LevelsEnd"/>
+      </bpmn:subProcess>
+      
+      <!-- Генерация текстов -->
+      <bpmn:task id="GenWarnings" name="Генерация предупреждений"/>
+      <bpmn:task id="GenReasoning" name="Генерация обоснования"/>
+      <bpmn:task id="GenAnalysis" name="Генерация анализа"/>
+      <bpmn:task id="DetermineRec" name="Определить рекомендацию&#10;(enter/wait/skip)"/>
+      
+      <bpmn:task id="AddCandidate" name="Добавить кандидата"/>
+      <bpmn:task id="LogResult" name="Логировать результат"/>
+      
+      <bpmn:endEvent id="AnalysisEnd" name="Анализ завершён"/>
+      <bpmn:endEvent id="SkipEnd" name="Пропустить тикер"/>
+      
+      <!-- Связи внутри AnalysisPhase -->
+      <bpmn:sequenceFlow id="a1" sourceRef="AnalysisStart" targetRef="FetchParallel"/>
+      <bpmn:sequenceFlow id="a2" sourceRef="FetchParallel" targetRef="Fetch5m"/>
+      <bpmn:sequenceFlow id="a3" sourceRef="FetchParallel" targetRef="Fetch15m"/>
+      <bpmn:sequenceFlow id="a4" sourceRef="FetchParallel" targetRef="Fetch1h"/>
+      <bpmn:sequenceFlow id="a5" sourceRef="FetchParallel" targetRef="Fetch2h"/>
+      <bpmn:sequenceFlow id="a6" sourceRef="FetchParallel" targetRef="Fetch4h"/>
+      <bpmn:sequenceFlow id="a7" sourceRef="FetchParallel" targetRef="FetchFunding"/>
+      <bpmn:sequenceFlow id="a8" sourceRef="FetchParallel" targetRef="FetchOI"/>
+      <bpmn:sequenceFlow id="a9" sourceRef="FetchParallel" targetRef="FetchLS"/>
+      <bpmn:sequenceFlow id="a10" sourceRef="FetchParallel" targetRef="FetchTopTraders"/>
+      <bpmn:sequenceFlow id="a11" sourceRef="FetchParallel" targetRef="FetchOrderBook"/>
+      <bpmn:sequenceFlow id="a12" sourceRef="FetchParallel" targetRef="FetchLiq"/>
+      
+      <bpmn:sequenceFlow id="a13" sourceRef="Fetch5m" targetRef="FetchJoin"/>
+      <bpmn:sequenceFlow id="a14" sourceRef="Fetch15m" targetRef="FetchJoin"/>
+      <bpmn:sequenceFlow id="a15" sourceRef="Fetch1h" targetRef="FetchJoin"/>
+      <bpmn:sequenceFlow id="a16" sourceRef="Fetch2h" targetRef="FetchJoin"/>
+      <bpmn:sequenceFlow id="a17" sourceRef="Fetch4h" targetRef="FetchJoin"/>
+      <bpmn:sequenceFlow id="a18" sourceRef="FetchFunding" targetRef="FetchJoin"/>
+      <bpmn:sequenceFlow id="a19" sourceRef="FetchOI" targetRef="FetchJoin"/>
+      <bpmn:sequenceFlow id="a20" sourceRef="FetchLS" targetRef="FetchJoin"/>
+      <bpmn:sequenceFlow id="a21" sourceRef="FetchTopTraders" targetRef="FetchJoin"/>
+      <bpmn:sequenceFlow id="a22" sourceRef="FetchOrderBook" targetRef="FetchJoin"/>
+      <bpmn:sequenceFlow id="a23" sourceRef="FetchLiq" targetRef="FetchJoin"/>
+      
+      <bpmn:sequenceFlow id="a24" sourceRef="FetchJoin" targetRef="CheckCandles"/>
+      <bpmn:sequenceFlow id="a25" sourceRef="CheckCandles" targetRef="IndicatorsSub">
+        <bpmn:conditionExpression>≥ 100 свечей</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="a26" sourceRef="CheckCandles" targetRef="SkipEnd">
+        <bpmn:conditionExpression>&lt; 100 свечей</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      
+      <bpmn:sequenceFlow id="a27" sourceRef="IndicatorsSub" targetRef="TierSub"/>
+      <bpmn:sequenceFlow id="a28" sourceRef="TierSub" targetRef="ScoreSub"/>
+      <bpmn:sequenceFlow id="a29" sourceRef="ScoreSub" targetRef="SetupSub"/>
+      <bpmn:sequenceFlow id="a30" sourceRef="SetupSub" targetRef="LevelsSub"/>
+      <bpmn:sequenceFlow id="a31" sourceRef="LevelsSub" targetRef="GenWarnings"/>
+      <bpmn:sequenceFlow id="a32" sourceRef="GenWarnings" targetRef="GenReasoning"/>
+      <bpmn:sequenceFlow id="a33" sourceRef="GenReasoning" targetRef="GenAnalysis"/>
+      <bpmn:sequenceFlow id="a34" sourceRef="GenAnalysis" targetRef="DetermineRec"/>
+      <bpmn:sequenceFlow id="a35" sourceRef="DetermineRec" targetRef="AddCandidate"/>
+      <bpmn:sequenceFlow id="a36" sourceRef="AddCandidate" targetRef="LogResult"/>
+      <bpmn:sequenceFlow id="a37" sourceRef="LogResult" targetRef="AnalysisEnd"/>
+    </bpmn:subProcess>
+    
+    <!-- ==================== ЭТАП 4: ФИЛЬТРАЦИЯ ==================== -->
+    <bpmn:subProcess id="FilterPhase" name="Этап 4: Фильтрация и сортировка">
+      <bpmn:startEvent id="FilterStart" name="Начало фильтрации"/>
+      
+      <bpmn:task id="ApplyFilters" name="Применить фильтры&#10;(minConfidence, minPriceChange,&#10;onlyRsiDivergence, hideFakePump)"/>
+      <bpmn:task id="SortCandidates" name="Сортировать кандидатов&#10;(confidence/score/priceChange/RSI/volume)"/>
+      
+      <bpmn:endEvent id="FilterEnd" name="Готово к возврату"/>
+      
+      <bpmn:sequenceFlow id="f1" sourceRef="FilterStart" targetRef="ApplyFilters"/>
+      <bpmn:sequenceFlow id="f2" sourceRef="ApplyFilters" targetRef="SortCandidates"/>
+      <bpmn:sequenceFlow id="f3" sourceRef="SortCandidates" targetRef="FilterEnd"/>
+    </bpmn:subProcess>
+    
+    <!-- ==================== ЭТАП 5: РЕЗУЛЬТАТ ==================== -->
+    <bpmn:task id="FormResponse" name="Сформировать JSON ответ"/>
+    <bpmn:task id="LogSummary" name="Логировать итоги"/>
+    
+    <bpmn:endEvent id="End" name="Возврат кандидатов"/>
+    
+    <!-- ==================== ГЛАВНЫЙ FLOW ==================== -->
+    <bpmn:sequenceFlow id="flow1" sourceRef="Start" targetRef="InitPhase"/>
+    <bpmn:sequenceFlow id="flow2" sourceRef="InitPhase" targetRef="DataPhase"/>
+    <bpmn:sequenceFlow id="flow3" sourceRef="DataPhase" targetRef="AnalysisPhase"/>
+    <bpmn:sequenceFlow id="flow4" sourceRef="AnalysisPhase" targetRef="FilterPhase"/>
+    <bpmn:sequenceFlow id="flow5" sourceRef="FilterPhase" targetRef="FormResponse"/>
+    <bpmn:sequenceFlow id="flow6" sourceRef="FormResponse" targetRef="LogSummary"/>
+    <bpmn:sequenceFlow id="flow7" sourceRef="LogSummary" targetRef="End"/>
+    
+  </bpmn:process>
+  
+  <!-- ==================== ДИАГРАММА ==================== -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="ShortScanner">
+      
+      <!-- Start -->
+      <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
+        <dc:Bounds x="152" y="412" width="36" height="36"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="135" y="455" width="70" height="14"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Init Phase -->
+      <bpmndi:BPMNShape id="InitPhase_di" bpmnElement="InitPhase" isExpanded="false">
+        <dc:Bounds x="250" y="390" width="140" height="80"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="255" y="395" width="130" height="40"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Data Phase -->
+      <bpmndi:BPMNShape id="DataPhase_di" bpmnElement="DataPhase" isExpanded="false">
+        <dc:Bounds x="450" y="390" width="140" height="80"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="455" y="395" width="130" height="40"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Analysis Phase -->
+      <bpmndi:BPMNShape id="AnalysisPhase_di" bpmnElement="AnalysisPhase" isExpanded="false">
+        <dc:Bounds x="650" y="350" width="200" height="160"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="655" y="355" width="190" height="40"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Filter Phase -->
+      <bpmndi:BPMNShape id="FilterPhase_di" bpmnElement="FilterPhase" isExpanded="false">
+        <dc:Bounds x="910" y="390" width="140" height="80"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="915" y="395" width="130" height="40"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Form Response -->
+      <bpmndi:BPMNShape id="FormResponse_di" bpmnElement="FormResponse">
+        <dc:Bounds x="1110" y="390" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      
+      <!-- Log Summary -->
+      <bpmndi:BPMNShape id="LogSummary_di" bpmnElement="LogSummary">
+        <dc:Bounds x="1270" y="390" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      
+      <!-- End -->
+      <bpmndi:BPMNShape id="End_di" bpmnElement="End">
+        <dc:Bounds x="1430" y="412" width="36" height="36"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1410" y="455" width="76" height="14"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Edges -->
+      <bpmndi:BPMNEdge id="edge1" bpmnElement="flow1">
+        <di:waypoint x="188" y="430"/>
+        <di:waypoint x="250" y="430"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge2" bpmnElement="flow2">
+        <di:waypoint x="390" y="430"/>
+        <di:waypoint x="450" y="430"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge3" bpmnElement="flow3">
+        <di:waypoint x="590" y="430"/>
+        <di:waypoint x="650" y="430"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge4" bpmnElement="flow4">
+        <di:waypoint x="850" y="430"/>
+        <di:waypoint x="910" y="430"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge5" bpmnElement="flow5">
+        <di:waypoint x="1050" y="430"/>
+        <di:waypoint x="1110" y="430"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge6" bpmnElement="flow6">
+        <di:waypoint x="1210" y="430"/>
+        <di:waypoint x="1270" y="430"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge7" bpmnElement="flow7">
+        <di:waypoint x="1370" y="430"/>
+        <di:waypoint x="1430" y="430"/>
+      </bpmndi:BPMNEdge>
+      
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  
+</bpmn:definitions>

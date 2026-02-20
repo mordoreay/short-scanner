@@ -1,0 +1,283 @@
+@startuml TIER_Subsystem_Detail
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+title Подсистема TIER-классификации (детальная схема)
+
+' ==================== ВХОДНЫЕ ДАННЫЕ ====================
+cloud "Входные данные" as Input #E3F2FD {
+    card "Symbol" as Symbol
+    card "Candles 1h" as Candles
+    card "Price Change 24h" as PriceChange
+    card "Current Volume" as CurrentVolume
+}
+
+' ==================== ШАГ 1: РАСЧЁТ МЕТРИК ====================
+rectangle "ШАГ 1: Расчёт метрик волатильности" as Step1 #FFF3E0 {
+    
+    rectangle "Расчёт ATR" as CalcATR {
+        (ATR 24h) as ATR24h
+        (ATR 7d) as ATR7d  
+        (ATR 14d) as ATR14d
+    }
+    
+    rectangle "Расчёт Volume" as CalcVol {
+        (Avg Volume) as AvgVol
+        (Volume Ratio) as VolRatio
+    }
+    
+    note bottom of CalcATR
+        ATR% = (ATR / Price) × 100
+        
+        True Range = max(
+            High - Low,
+            |High - PrevClose|,
+            |Low - PrevClose|
+        )
+    end note
+    
+    note bottom of CalcVol
+        Volume Ratio = 
+        Current Volume / Avg Volume (168h)
+    end note
+}
+
+' ==================== ШАГ 2: ПРОВЕРКА OVERRIDE ====================
+rectangle "ШАГ 2: Проверка Override списков" as Step2 #E8F5E9 {
+    
+    card "TIER 1 Override\n(пустой список)" as T1Override #C8E6C9
+    card "TIER 3 Override\n(PEPE, WIF, BONK,\nFLOKI, SHIB, MEME,\nBOME, WEN, MYRO,\nPONKE, POPCAT, NEIRO)" as T3Override #FFCDD2
+    
+    diamond "Символ в списке?" as CheckOverride
+    
+    note right of T3Override
+        Известные мемкоины
+        всегда TIER 3
+    end note
+}
+
+' ==================== ШАГ 3: ОПРЕДЕЛЕНИЕ BASE TIER ====================
+rectangle "ШАГ 3: Определение Base TIER (по ATR 14d)" as Step3 #E1F5FE {
+    
+    rectangle "Исторические пороги" as HistThresholds {
+        (ATR < 5% → TIER 1) as H1
+        (ATR 5-12% → TIER 2) as H2
+        (ATR > 12% → TIER 3) as H3
+    }
+    
+    diamond "Определить Base Tier" as CalcBase
+    
+    note bottom of HistThresholds
+        Историческая волатильность
+        за 2 недели (336 свечей)
+        Вес: 50%
+    end note
+}
+
+' ==================== ШАГ 4: ОПРЕДЕЛЕНИЕ CURRENT TIER ====================
+rectangle "ШАГ 4: Определение Current TIER (по ATR 24h)" as Step4 #FCE4EC {
+    
+    rectangle "Текущие пороги" as CurrThresholds {
+        (ATR < 4% → TIER 1) as C1
+        (ATR 4-10% → TIER 2) as C2
+        (ATR > 10% → TIER 3) as C3
+    }
+    
+    diamond "Определить Current Tier" as CalcCurr
+    
+    note bottom of CurrThresholds
+        Текущая волатильность
+        за 24 часа (24 свечи)
+        Вес: 30%
+    end note
+}
+
+' ==================== ШАГ 5: PRICE CHANGE TIER ====================
+rectangle "ШАГ 5: Определение Price Change TIER" as Step5 #E8EAF6 {
+    
+    rectangle "Пороги движения" as PriceThresholds {
+        (|Δ| < 10% → TIER 1) as P1
+        (|Δ| 10-25% → TIER 2) as P2
+        (|Δ| > 25% → TIER 3) as P3
+    }
+    
+    note bottom of PriceThresholds
+        Изменение цены за 24ч
+        Вес: 20%
+    end note
+}
+
+' ==================== ШАГ 6: КОМБИНАЦИЯ TIER ====================
+rectangle "ШАГ 6: Взвешенная комбинация" as Step6 #F3E5F5 {
+    
+    card "Формула:" as Formula #FFF9C4 {
+        weightedScore = 
+        BaseTIER × 0.5 +
+        CurrentTIER × 0.3 +
+        PriceChangeTIER × 0.2
+    }
+    
+    (Округление) as Round
+    
+    note right of Formula
+        Результат: 1.0 - 3.0
+        Округляется до целого
+        
+        Пример:
+        Base=2, Curr=3, Price=2
+        = 2×0.5 + 3×0.3 + 2×0.2
+        = 1.0 + 0.9 + 0.4
+        = 2.3 → TIER 2
+    end note
+}
+
+' ==================== ШАГ 7: VOLUME ADJUSTMENT ====================
+rectangle "ШАГ 7: Корректировка по Volume" as Step7 #FFEBEE {
+    
+    diamond "Проверка Volume" as CheckVol
+    
+    rectangle "Volume Spike + Low ATR" as VolSpike {
+        (Volume > 3x AND ATR < 5%) as VS1
+        → TIER = max(TIER, 2)
+        → confidence -= 10%
+    }
+    
+    rectangle "Extreme Volume" as VolExtreme {
+        (Volume > 5x) as VS2
+        → TIER = max(TIER, 2)
+        → confidence -= 5%
+    }
+    
+    rectangle "Low Volume" as VolLow {
+        (Volume < 0.3x) as VS3
+        → confidence -= 15%
+        note right: Ловушка ликвидности
+    }
+    
+    rectangle "Normal Volume" as VolNormal {
+        (0.7x ≤ Volume ≤ 2x) as VS4
+        → confidence += 5%
+    }
+    
+    rectangle "Confirmed Volume" as VolConfirm {
+        (Volume > 2x AND ATR > 10%) as VS5
+        → confidence += 10%
+        note right: Подтверждённое движение
+    }
+    
+    note bottom of Step7
+        Volume - это модификатор,
+        а не основной фактор.
+        Влияет на TIER и confidence.
+    end note
+}
+
+' ==================== ШАГ 8: НОВЫЕ МОНЕТЫ ====================
+rectangle "ШАГ 8: Проверка новых монет" as Step8 #E0E0E0 {
+    
+    diamond "Свечей < 50?" as CheckNew
+    
+    rectangle "Обработка новой монеты" as NewCoin {
+        (Оценка ATR из доступных данных) as NC1
+        (Флаг isNewCoin = true) as NC2
+        (confidence -= 20%) as NC3
+    }
+    
+    note right of NewCoin
+        Для новых монет:
+        - Меньше данных
+        - Меньше уверенность
+        - ATR может быть неточным
+    end note
+}
+
+' ==================== ШАГ 9: РАСЧЁТ CONFIDENCE ====================
+rectangle "ШАГ 9: Расчёт Confidence" as Step9 #B2DFDB {
+    
+    card "Базовый confidence: 50%" as ConfBase
+    
+    rectangle "Модификаторы" as ConfMods {
+        (+25% если свечей ≥ 336) as CM1
+        (+15% если свечей ≥ 168) as CM2
+        (+5% если свечей ≥ 50) as CM3
+        (-20% если свечей < 50) as CM4
+        
+        (+15% если |ATR24h - ATR14d| < 2%) as CM5
+        (+5% если |ATR24h - ATR14d| < 5%) as CM6
+        
+        (-10% если ATR24h > 15%) as CM7
+    }
+    
+    (Volume mods из шага 7) as CM8
+    
+    note bottom of ConfMods
+        Confidence = 50 + модификаторы
+        Min: 10%, Max: 100%
+    end note
+}
+
+' ==================== РЕЗУЛЬТАТ ====================
+rectangle "РЕЗУЛЬТАТ" as Result #4CAF50 {
+    
+    card "TIER: 1 | 2 | 3" as FinalTier
+    card "Config: TIER_X_CONFIG" as FinalConfig
+    card "Confidence: 10-100%" as FinalConf
+    card "Volatility Metrics" as FinalVol
+    card "Flags: isNewCoin, volumeAdjusted" as FinalFlags
+    
+    note bottom of Result
+        TIER 1 → Консервативные пороги
+        TIER 2 → Умеренные пороги
+        TIER 3 → Агрессивные пороги
+    end note
+}
+
+' ==================== СВЯЗИ ====================
+Symbol --> Step1
+Candles --> Step1
+PriceChange --> Step1
+CurrentVolume --> Step1
+
+Step1 --> Step2
+Step1 --> Step3
+Step1 --> Step4
+Step1 --> Step5
+
+Step2 --> CheckOverride
+CheckOverride --> T1Override : да (TIER 1)
+CheckOverride --> T3Override : да (TIER 3)
+CheckOverride --> Step3 : нет
+
+Step3 --> CalcBase
+Step4 --> CalcCurr
+
+CalcBase --> Step6
+CalcCurr --> Step6
+Step5 --> Step6
+
+Step6 --> Round
+Round --> Step7
+
+Step7 --> CheckVol
+CheckVol --> VolSpike : да
+CheckVol --> VolExtreme : да
+CheckVol --> VolLow : да
+CheckVol --> VolNormal : да
+CheckVol --> VolConfirm : да
+
+VolSpike --> Step8
+VolExtreme --> Step8
+VolLow --> Step8
+VolNormal --> Step8
+VolConfirm --> Step8
+
+Step8 --> CheckNew
+CheckNew --> NewCoin : да
+CheckNew --> Step9 : нет
+NewCoin --> Step9
+
+Step9 --> Result
+
+@enduml

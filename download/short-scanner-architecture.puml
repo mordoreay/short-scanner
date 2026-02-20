@@ -1,0 +1,521 @@
+@startuml SHORT_Scanner_Architecture
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+
+title Архитектура SHORT Scanner v3.0
+
+' ==================== ПОДСИСТЕМА ДАННЫХ ====================
+package "Подсистема получения данных" as DataSubsystem #E3F2FD {
+    
+    package "Интерфейсы бирж" as ExchangeInterfaces {
+        interface IExchangeAPI {
+            + getTopGainers(minChange: number, limit: number): Ticker[]
+            + getKlines(symbol: string, timeframe: string, limit: number): Candle[]
+            + getFundingRate(symbol: string): FundingRateData
+            + getOpenInterest(symbol: string): OpenInterestData
+            + getLongShortRatio(symbol: string): LongShortRatio
+            + getTopTradersRatio(symbol: string): TopTradersRatio
+            + getOrderBook(symbol: string, price: number): OrderBookData
+            + getLiquidationHeatmap(symbol: string, price: number): LiquidationData
+        }
+        
+        class BybitAPI implements IExchangeAPI {
+            - baseUrl: string
+            - apiKey: string
+            + getTopGainers()
+            + getKlines()
+            + getFundingRate()
+            + getOpenInterest()
+            + getLongShortRatio()
+            + getTopTradersRatio()
+            + getOrderBook()
+            + getLiquidationHeatmap()
+        }
+        
+        class BinanceAPI implements IExchangeAPI {
+            - baseUrl: string
+            + getTopGainers()
+            + getKlines()
+            + getFundingRate()
+            + getOpenInterest()
+        }
+    }
+    
+    class "Фабрика бирж" as ExchangeFactory {
+        + getExchangeAPI(exchange: Exchange): IExchangeAPI
+    }
+}
+
+' ==================== ПОДСИСТЕМА ИНДИКАТОРОВ ====================
+package "Подсистема технического анализа" as IndicatorSubsystem #E8F5E9 {
+    
+    class "Менеджер индикаторов" as IndicatorManager {
+        + getAllIndicatorsMultiTF(candles5m, candles15m, candles1h, candles2h, candles4h, perpetualData): Indicators
+    }
+    
+    package "Осцилляторы" as Oscillators {
+        class RSI {
+            + value: number
+            + divergence: DivergenceInfo
+            + signal: string
+        }
+        class MACD {
+            + value: number
+            + signal: number
+            + histogram: number
+            + crossover: string
+            + divergence: DivergenceInfo
+        }
+        class Stochastic {
+            + k: number
+            + d: number
+            + signal: string
+        }
+    }
+    
+    package "Трендовые индикаторы" as TrendIndicators {
+        class EMA {
+            + ema9: number
+            + ema21: number
+            + ema50: number
+            + ema200: number
+            + trend: string
+            + crossover: string
+            + ema200Distance: number
+        }
+        class "Полосы Боллинджера" as BollingerBands {
+            + upper: number
+            + middle: number
+            + lower: number
+            + position: number
+            + signal: string
+        }
+        class VWAP {
+            + value: number
+            + deviation: number
+            + signal: string
+        }
+        class ADX {
+            + value: number
+            + trend: string
+            + strength: string
+        }
+    }
+    
+    package "Индикаторы волатильности" as VolatilityIndicators {
+        class ATR {
+            + value: number
+            + volatility: string
+            + percent: number
+        }
+    }
+    
+    package "Мульти-таймфрейм анализ" as MultiTF {
+        class "Выравнивание трендов" as MultiTFAlignment {
+            + direction: string
+            + score: number
+            + timeframes: TFAnalysis[]
+        }
+    }
+    
+    package "Детекторы паттернов" as PatternDetectors {
+        class "Детектор Fake Pump" as FakePumpDetector {
+            + isFake: boolean
+            + confidence: number
+            + reasons: string[]
+        }
+        class "Детектор дивергенции" as DivergenceDetector {
+            + type: string
+            + strength: string
+            + confirmation: boolean
+        }
+        class "Структурный анализ" as StructureAnalyzer {
+            + trendStructure: string
+            + breakLevel: number
+        }
+    }
+    
+    package "Perpetual индикаторы" as PerpetualIndicators {
+        class FundingRate {
+            + rate: number
+            + annualized: number
+            + trend: string
+            + interpretation: string
+        }
+        class OpenInterest {
+            + value: number
+            + change24h: number
+            + interpretation: string
+        }
+        class "Соотношение Long/Short" as LongShortRatio {
+            + longRatio: number
+            + shortRatio: number
+            + ratio: number
+            + interpretation: string
+        }
+        class "Top Traders Ratio" as TopTradersRatio {
+            + longRatio: number
+            + shortRatio: number
+            + interpretation: string
+        }
+    }
+    
+    package "Order Flow" as OrderFlow {
+        class OrderBook {
+            + bidDepth: number
+            + askDepth: number
+            + imbalance: number
+            + bidWall: number
+            + askWall: number
+        }
+        class LiquidationHeatmap {
+            + levels: LiquidationLevel[]
+            + nearestCluster: number
+            + clusterStrength: number
+        }
+    }
+}
+
+' ==================== ПОДСИСТЕМА TIER ====================
+package "Подсистема TIER-классификации" as TierSubsystem #FFF3E0 {
+    
+    class "Метрики волатильности" as VolatilityMetrics {
+        + atr24h: number
+        + atr7d: number
+        + atr14d: number
+        + priceChange24h: number
+        + avgVolume: number
+        + currentVolume: number
+        + volumeRatio: number
+        + isVolatile: boolean
+    }
+    
+    class "Результат определения TIER" as TierDetectionResult {
+        + tier: Tier (1|2|3)
+        + baseTier: Tier
+        + currentTier: Tier
+        + volatility: VolatilityMetrics
+        + source: string
+        + confidence: number
+        + isNewCoin: boolean
+        + volumeAdjusted: boolean
+        + volumeReason: string
+    }
+    
+    class "Детектор TIER по волатильности" as VolatilityTierDetector {
+        + detectTierByVolatility(symbol, candles, priceChange24h, predefinedTier, currentVolume): TierDetectionResult
+        + calculateATRPercent(candles, period): number
+        + calculateVolatilityMetrics(candles, priceChange24h, currentVolume): VolatilityMetrics
+        + getCachedTier(symbol, candles, priceChange24h, predefinedTier, currentVolume): TierDetectionResult
+        - adjustTierForVolume(tier, volatility): VolumeAdjustment
+        - combineTiers(baseTier, currentTier, volatility, priceChange24h): Tier
+        - calculateConfidence(candleCount, volatility): number
+    }
+    
+    class "Конфигурация TIER" as TierConfig {
+        + TIER_1_CONFIG: AltConfig (Large Caps)
+        + TIER_2_CONFIG: AltConfig (Mid Caps)
+        + TIER_3_CONFIG: AltConfig (Memecoins)
+        + TIER_3_OVERRIDE: string[] (PEPE, WIF, BONK...)
+        + getTierBySymbol(symbol): Tier
+        + getConfigByTier(tier): AltConfig
+        + getTierAndConfigWithVolatility(symbol, candles, priceChange24h, currentVolume): TierResult
+    }
+    
+    class "Пороги TIER" as TierThresholds {
+        + historical: { tier1: 5%, tier2: 12% }
+        + current: { tier1: 4%, tier2: 10% }
+        + priceChange: { tier1: 10%, tier2: 25% }
+    }
+    
+    class "AltConfig (пороги для TIER)" as AltConfig {
+        + priceChange: PriceChangeThresholds
+        + rsi: RSIThresholds
+        + bollingerBands: BBThresholds
+        + vwap: VWAPThresholds
+        + fundingRate: FundingThresholds
+        + longShortRatio: LSRatioThresholds
+        + topTraders: TopTradersThresholds
+        + scoring: ScoringThresholds
+        + multiTF: MultiTFThresholds
+        + volume: VolumeThresholds
+    }
+    
+    note right of VolatilityTierDetector
+        Формула определения TIER:
+        
+        weightedScore = 
+          baseTier × 0.5 (ATR 14d)
+          + currentTier × 0.3 (ATR 24h)
+          + priceChangeTier × 0.2
+        
+        + Volume Adjustment
+        + Override List Check
+    end note
+}
+
+' ==================== ПОДСИСТЕМА СКОРИНГА ====================
+package "Подсистема скоринга" as ScoringSubsystem #FCE4EC {
+    
+    class "SHORT Score" as ShortScore {
+        + total: number
+        + breakdown: ScoreBreakdown
+        + recommendation: string
+    }
+    
+    class "Детализация score" as ScoreBreakdown {
+        + priceChange: number
+        + rsi: number
+        + bollingerBands: number
+        + vwap: number
+        + fundingRate: number
+        + longShortRatio: number
+        + topTraders: number
+        + multiTF: number
+        + openInterest: number
+        + orderFlow: number
+    }
+    
+    class "Калькулятор SHORT Score" as ShortScoreCalculator {
+        + calculateShortScore(indicators, priceChange24h, tierConfig): ShortScore
+        + calculateConfidence(score, setupType, indicators): number
+        - scorePriceChange(priceChange, config): number
+        - scoreRSI(rsi, divergence, config): number
+        - scoreBollingerBands(bb, config): number
+        - scoreVWAP(vwap, config): number
+        - scoreFundingRate(funding, config): number
+        - scoreLongShortRatio(lsr, config): number
+        - scoreTopTraders(ttr, config): number
+        - scoreMultiTF(multiTF, config): number
+        - scoreOpenInterest(oi, priceChange): number
+        - scoreOrderFlow(orderBook, liquidation): number
+    }
+    
+    note right of ShortScoreCalculator
+        Взвешенная формула:
+        
+        Total = Σ(factor × weight)
+        
+        Веса зависят от TIER:
+        - TIER 1: консервативные пороги
+        - TIER 2: умеренные пороги
+        - TIER 3: агрессивные пороги
+    end note
+}
+
+' ==================== ПОДСИСТЕМА СЕТАПОВ ====================
+package "Подсистема определения сетапов" as SetupSubsystem #E1F5FE {
+    
+    class "Тип сетапа" as SetupType {
+        <<enumeration>>
+        Divergence (Медвежья дивергенция)
+        OI_Divergence (Расхождение цены и OI)
+        FakePump (Искусственный памп)
+        StructureBreak (Структурный слом)
+        DoubleTop (Двойная вершина)
+        ResistanceRejection (Отказ от сопротивления)
+        Rejection (Отскок от BB + RSI)
+        Breakout (Медвежий кроссовер EMA)
+        MeanReversion (Возврат к среднему)
+    }
+    
+    class "Определитель сетапа" as SetupDetector {
+        + determineSetupType(indicators, shortScore, priceChange24h, translations): SetupResult
+        - detectOIDivergence(indicators, priceChange24h): DetectionResult
+        - detectStructureBreak(indicators, priceChange24h): DetectionResult
+        - detectDoubleTop(indicators, priceChange24h): DetectionResult
+        - detectResistanceRejection(indicators): DetectionResult
+    }
+    
+    class "Результат сетапа" as SetupResult {
+        + type: SetupType
+        + pattern: string
+        + description: string
+        + direction: "short"
+        + confidence: number
+    }
+    
+    class "Торговые уровни" as TradeLevels {
+        + entryZone: [number, number]
+        + stopLoss: number
+        + takeProfit1: number
+        + takeProfit2: number
+        + riskReward: number
+        + breakevenTrigger: number
+        + breakevenSL: number
+        + breakevenInfo: string
+    }
+    
+    class "Калькулятор уровней" as TradeLevelsCalculator {
+        + calculateTradeLevels(price, high24h, low24h, atr, indicators, setupType, priceChange24h, language): TradeLevels
+        - calculateEntryZone(price, atr, indicators, setupType): [number, number]
+        - calculateStopLoss(entry, atr, high24h, indicators, setupType): number
+        - calculateTakeProfits(entry, sl, atr, indicators): [number, number]
+    }
+    
+    note right of TradeLevelsCalculator
+        Логика расчёта:
+        
+        Entry Zone: зависит от типа сетапа
+        - Divergence: текущая цена или откат к EMA21
+        - FakePump: быстро на текущей цене
+        - StructureBreak: на ретесте
+        
+        Stop Loss: минимум 2 ATR
+        + за ключевым сопротивлением
+        
+        Take Profit:
+        - TP1: 2R или структура
+        - TP2: 3R или структура
+    end note
+}
+
+' ==================== ПОДСИСТЕМА ФИЛЬТРАЦИИ ====================
+package "Подсистема фильтрации и сортировки" as FilterSubsystem #F3E5F5 {
+    
+    class "Фильтры сканера" as ScannerFilters {
+        + minConfidence: number
+        + minPriceChange: number
+        + onlyRsiDivergence: boolean
+        + hideFakePump: boolean
+        + hideWaitSetups: boolean
+    }
+    
+    class "Опции сортировки" as SortOption {
+        <<enumeration>>
+        CONFIDENCE (по уверенности)
+        SHORT_SCORE (по score)
+        PRICE_CHANGE (по изменению цены)
+        RSI (по RSI)
+        VOLUME (по объёму)
+    }
+    
+    class "Менеджер фильтрации" as FilterManager {
+        + filterCandidates(candidates, filters): Candidate[]
+        + sortCandidates(candidates, sortBy): Candidate[]
+    }
+}
+
+' ==================== ГЛАВНЫЙ КОНТРОЛЛЕР ====================
+package "API Layer" as APILayer #FFEBEE {
+    
+    class "Scanner API Route" as ScannerAPI {
+        + GET(request: NextRequest): NextResponse
+        - getTranslations(language): Translations
+        - generateWarningSignals(indicators, priceChange24h, t): string[]
+        - generateReasoning(setupType, indicators, priceChange24h, t): string
+        - generateAnalysis(name, setupType, shortScore, indicators, recommendation, t): string
+        - determineRecommendation(shortScore, indicators): "enter" | "wait" | "skip"
+    }
+    
+    class "Результат сканирования" as ScannerResponse {
+        + success: boolean
+        + message: string
+        + timestamp: string
+        + analyzedCount: number
+        + candidates: Candidate[]
+    }
+}
+
+' ==================== МОДЕЛИ ДАННЫХ ====================
+package "Модели данных" as DataModels #ECEFF1 {
+    
+    class Ticker {
+        + symbol: string
+        + name: string
+        + currentPrice: number
+        + priceChange24h: number
+        + high24h: number
+        + low24h: number
+        + volume: number
+        + fundingRate: number
+        + openInterest: number
+    }
+    
+    class Candle {
+        + timestamp: number
+        + open: number
+        + high: number
+        + low: number
+        + close: number
+        + volume: number
+    }
+    
+    class Candidate {
+        + symbol: string
+        + name: string
+        + currentPrice: number
+        + priceChange24h: number
+        + volume: number
+        + shortScore: ShortScore
+        + setup: Setup
+        + analysis: string
+        + recommendation: string
+        + tier: Tier
+        + tierInfo: TierDescription
+    }
+    
+    class Setup {
+        + type: SetupType
+        + pattern: string
+        + description: string
+        + confidence: number
+        + entryZone: [number, number]
+        + stopLoss: number
+        + takeProfit1: number
+        + takeProfit2: number
+        + riskReward: number
+        + timeframe: string
+        + reasoning: string
+        + keyLevels: number[]
+        + warningSignals: string[]
+        + indicators: Indicators
+    }
+}
+
+' ==================== СВЯЗИ ====================
+ScannerAPI --> ExchangeFactory : использует
+ExchangeFactory --> IExchangeAPI : создаёт
+IExchangeAPI --> Ticker : возвращает
+IExchangeAPI --> Candle : возвращает
+
+ScannerAPI --> IndicatorManager : использует
+IndicatorManager --> Oscillators : вычисляет
+IndicatorManager --> TrendIndicators : вычисляет
+IndicatorManager --> VolatilityIndicators : вычисляет
+IndicatorManager --> MultiTF : анализирует
+IndicatorManager --> PatternDetectors : детектирует
+IndicatorManager --> PerpetualIndicators : анализирует
+IndicatorManager --> OrderFlow : анализирует
+
+ScannerAPI --> VolatilityTierDetector : использует
+VolatilityTierDetector --> VolatilityMetrics : создаёт
+VolatilityTierDetector --> TierDetectionResult : возвращает
+VolatilityTierDetector --> TierConfig : использует
+TierConfig --> AltConfig : содержит
+VolatilityTierDetector --> TierThresholds : использует
+
+ScannerAPI --> ShortScoreCalculator : использует
+ShortScoreCalculator --> ShortScore : создаёт
+ShortScoreCalculator --> ScoreBreakdown : создаёт
+ShortScoreCalculator --> AltConfig : использует пороги
+
+ScannerAPI --> SetupDetector : использует
+SetupDetector --> SetupResult : возвращает
+SetupDetector --> SetupType : определяет
+
+ScannerAPI --> TradeLevelsCalculator : использует
+TradeLevelsCalculator --> TradeLevels : создаёт
+
+ScannerAPI --> FilterManager : использует
+FilterManager --> ScannerFilters : применяет
+FilterManager --> SortOption : сортирует
+
+ScannerAPI --> ScannerResponse : возвращает
+ScannerResponse --> Candidate : содержит
+Candidate --> Setup : содержит
+Candidate --> ShortScore : содержит
+
+@enduml
