@@ -1,4 +1,4 @@
-import { Candle, Indicators, ShortScoreBreakdown, FundingRateIndicator, OpenInterestIndicator, EntryTimingIndicator, LongShortRatioIndicator, TopTradersIndicator, OrderBookIndicator, LiquidationHeatmapIndicator } from '@/types/scanner';
+import { Candle, Indicators, ShortScoreBreakdown, FundingRateIndicator, OpenInterestIndicator, EntryTimingIndicator, LongShortRatioIndicator, TopTradersIndicator, OrderBookIndicator, LiquidationHeatmapIndicator, EntryTimingBreakdown } from '@/types/scanner';
 import { getRSIIndicator } from './rsi';
 import { getMACDIndicator, calculateMACD, calculateEMA } from './macd';
 import { getBollingerBandsIndicator } from './bollinger';
@@ -8,6 +8,7 @@ import { getADXIndicator } from './adx';
 import { detectRSIDivergence, detectMACDDivergence } from './divergence';
 import { detectFakePump } from './fakePump';
 import { getStochRSIIndicator } from './stochRsi';
+import { detectBearishPatterns, detectBullishPatterns } from './candlePatterns';
 
 /**
  * Calculate VWAP
@@ -341,10 +342,40 @@ export function getAllIndicators(
   const entryTiming: EntryTimingIndicator = {
     quality: 'good',
     score: 50,
-    rsi5m: rsi.value,
-    divergence5m: 'none',
-    pullbackDepth: 50,
     signal: 'ready',
+    breakdown: {
+      candlePatterns: {
+        score: 0,
+        maxScore: 20,
+        detected: [],
+        bullishWarning: [],
+        summary: 'Недостаточно данных',
+      },
+      indicators: {
+        score: 0,
+        maxScore: 35,
+        rsi5m: { value: rsi.value, score: 0, signal: 'neutral' },
+        stochRsi: { k: 50, d: 50, cross: 'none', score: 0 },
+        macd: { trend: 'neutral', histogramDeclining: false, score: 0 },
+        divergence: { type: 'none', score: 0 },
+      },
+      volume: {
+        score: 0,
+        maxScore: 25,
+        currentVsAvg: 1,
+        sellingPressure: 50,
+        spike: false,
+      },
+      pricePosition: {
+        score: 0,
+        maxScore: 20,
+        atResistance: false,
+        resistanceStrength: 'none',
+        pullbackDepth: 50,
+        rejectionWick: 0,
+      },
+    },
+    recommendation: 'Используйте Multi-TF режим для анализа тайминга',
     reason: 'Single-TF mode - use Multi-TF for entry timing',
   };
 
@@ -418,8 +449,14 @@ export function getAllIndicators(
 }
 
 /**
- * Calculate Entry Timing from 5m candles
+ * Calculate Entry Timing v2.0 from 5m candles
  * DOES NOT affect main signal - only refines entry point
+ * 
+ * Scoring breakdown (0-100):
+ * - Candle Patterns: 0-20 pts
+ * - Indicators 5m: 0-35 pts (RSI, StochRSI, MACD, Divergence)
+ * - Volume: 0-25 pts
+ * - Price Position: 0-20 pts
  */
 function calculateEntryTiming(
   candles5m: Candle[],
@@ -427,113 +464,335 @@ function calculateEntryTiming(
   currentPrice: number,
   entryZone: [number, number] | null
 ): EntryTimingIndicator {
-  // Need at least 50 candles for 5m analysis
-  if (candles5m.length < 50) {
+  // Default fallback for insufficient data
+  const defaultBreakdown: EntryTimingBreakdown = {
+    candlePatterns: {
+      score: 0,
+      maxScore: 20,
+      detected: [],
+      bullishWarning: [],
+      summary: 'Недостаточно данных',
+    },
+    indicators: {
+      score: 0,
+      maxScore: 35,
+      rsi5m: { value: 50, score: 0, signal: 'neutral' },
+      stochRsi: { k: 50, d: 50, cross: 'none', score: 0 },
+      macd: { trend: 'neutral', histogramDeclining: false, score: 0 },
+      divergence: { type: 'none', score: 0 },
+    },
+    volume: {
+      score: 0,
+      maxScore: 25,
+      currentVsAvg: 1,
+      sellingPressure: 50,
+      spike: false,
+    },
+    pricePosition: {
+      score: 0,
+      maxScore: 20,
+      atResistance: false,
+      resistanceStrength: 'none',
+      pullbackDepth: 50,
+      rejectionWick: 0,
+    },
+  };
+
+  // Need at least 20 candles for 5m analysis
+  if (candles5m.length < 20) {
     return {
       quality: 'good',
       score: 50,
-      rsi5m: 50,
-      divergence5m: 'none',
-      pullbackDepth: 50,
       signal: 'ready',
+      breakdown: defaultBreakdown,
+      recommendation: 'Недостаточно данных для анализа тайминга',
       reason: 'Insufficient 5m data',
     };
   }
 
-  // Get 5m RSI
+  // ==================== 1. CANDLE PATTERNS (0-20 pts) ====================
+  const bearishPatterns = detectBearishPatterns(candles5m);
+  const bullishPatterns = detectBullishPatterns(candles5m);
+
+  const candlePatternsScore = bearishPatterns.totalScore;
+  const hasBullishWarning = bullishPatterns.hasHighReliability;
+
+  // ==================== 2. INDICATORS 5m (0-35 pts) ====================
+  // RSI 5m (0-15 pts)
   const rsi5m = getRSIIndicator(candles5m);
   const rsiValue = rsi5m.value;
+  let rsiScore = 0;
+  let rsiSignal: 'overbought' | 'elevated' | 'neutral' | 'oversold' = 'neutral';
 
-  // Check for 5m divergence (micro divergence)
+  if (rsiValue >= 80) {
+    rsiScore = 15;
+    rsiSignal = 'overbought';
+  } else if (rsiValue >= 70) {
+    rsiScore = 12;
+    rsiSignal = 'overbought';
+  } else if (rsiValue >= 65) {
+    rsiScore = 8;
+    rsiSignal = 'elevated';
+  } else if (rsiValue >= 55) {
+    rsiScore = 3;
+    rsiSignal = 'neutral';
+  } else if (rsiValue <= 30) {
+    rsiScore = -5;
+    rsiSignal = 'oversold';
+  } else if (rsiValue <= 40) {
+    rsiScore = -2;
+    rsiSignal = 'oversold';
+  }
+
+  // StochRSI 5m (0-10 pts)
+  const stochRsi = getStochRSIIndicator(candles5m);
+  let stochRsiScore = 0;
+  let stochCross: 'bearish' | 'bullish' | 'none' = 'none';
+
+  if (stochRsi.k > stochRsi.d && stochRsi.overbought) {
+    // K above D in overbought = potential bearish cross soon
+    stochRsiScore = 5;
+  } else if (stochRsi.k < stochRsi.d && stochRsi.overbought) {
+    // Bearish cross in overbought
+    stochRsiScore = 10;
+    stochCross = 'bearish';
+  } else if (stochRsi.k < stochRsi.d && stochRsi.k > 80) {
+    // Bearish cross forming
+    stochRsiScore = 7;
+    stochCross = 'bearish';
+  } else if (stochRsi.k > stochRsi.d && stochRsi.oversold) {
+    // Bullish cross in oversold (bad for short)
+    stochRsiScore = -5;
+    stochCross = 'bullish';
+  }
+
+  // MACD 5m (0-10 pts)
+  const macd5m = getMACDIndicator(candles5m);
+  let macdScore = 0;
+  const histogramDeclining = (macd5m.histogram ?? 0) < 0;
+
+  if (macd5m.trend === 'bearish') {
+    macdScore = macd5m.strength === 'strong' ? 10 : 6;
+  } else if (macd5m.crossover === 'bearish') {
+    macdScore = 8;
+  } else if (macd5m.trend === 'bullish' && histogramDeclining) {
+    macdScore = 3; // Momentum weakening
+  }
+
+  // Divergence 5m (0-10 pts)
   const divergence5m = detectRSIDivergence(candles5m);
-  const microDiv = divergence5m.type;
+  let divScore = 0;
 
-  // Get 5m trend for context
-  const trend5m = getTrendFromEMA(candles5m);
+  if (divergence5m.type === 'bearish') {
+    divScore = divergence5m.strength === 'strong' ? 10 : 6;
+    if (divergence5m.confirmation) divScore += 2;
+  }
 
-  // Calculate pullback depth into entry zone
+  const indicatorsScore = Math.max(0, rsiScore) + stochRsiScore + macdScore + divScore;
+
+  // ==================== 3. VOLUME (0-25 pts) ====================
+  // Calculate average volume
+  const volumes = candles5m.slice(-20).map(c => c.volume);
+  const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+  const lastVolume = candles5m[candles5m.length - 1]?.volume || 0;
+  const volumeRatio = avgVolume > 0 ? lastVolume / avgVolume : 1;
+
+  // Calculate selling pressure (approximate from candle direction)
+  const lastCandles = candles5m.slice(-5);
+  let sellVolume = 0;
+  let totalVol = 0;
+  for (const c of lastCandles) {
+    const vol = c.volume || 0;
+    totalVol += vol;
+    if (c.close < c.open) {
+      sellVolume += vol; // Bearish candle = selling
+    } else if (c.close > c.open) {
+      sellVolume += vol * 0.3; // Partial selling in bullish
+    }
+  }
+  const sellingPressure = totalVol > 0 ? (sellVolume / totalVol) * 100 : 50;
+
+  let volumeScore = 0;
+  const isVolumeSpike = volumeRatio > 1.5;
+
+  if (isVolumeSpike) {
+    volumeScore += Math.min(10, Math.round((volumeRatio - 1) * 10));
+  }
+  if (sellingPressure >= 70) {
+    volumeScore += 10;
+  } else if (sellingPressure >= 60) {
+    volumeScore += 7;
+  } else if (sellingPressure >= 55) {
+    volumeScore += 4;
+  } else if (sellingPressure < 40) {
+    volumeScore -= 3; // Buying pressure dominant
+  }
+
+  volumeScore = Math.max(0, Math.min(25, volumeScore));
+
+  // ==================== 4. PRICE POSITION (0-20 pts) ====================
+  const bb = getBollingerBandsIndicator(candles5m);
+  const ema = getEMAIndicator(candles5m);
+
+  // Check if at resistance (upper BB, EMA resistance)
+  const bbPosition = bb.position;
+  const atResistance = bbPosition >= 85 || (currentPrice >= ema.ema200 && ema.ema200Distance > 5);
+  const resistanceStrength: 'strong' | 'moderate' | 'weak' | 'none' = 
+    bbPosition >= 95 ? 'strong' :
+    bbPosition >= 90 ? 'moderate' :
+    atResistance ? 'weak' : 'none';
+
+  // Rejection wick analysis
+  const lastCandle = candles5m[candles5m.length - 1];
+  const bodySize = Math.abs(lastCandle.close - lastCandle.open);
+  const upperWick = lastCandle.high - Math.max(lastCandle.open, lastCandle.close);
+  const rejectionWick = bodySize > 0 ? Math.round((upperWick / bodySize) * 100) : 0;
+
+  let pricePositionScore = 0;
+
+  // At resistance bonus
+  if (resistanceStrength === 'strong') {
+    pricePositionScore += 10;
+  } else if (resistanceStrength === 'moderate') {
+    pricePositionScore += 7;
+  } else if (resistanceStrength === 'weak') {
+    pricePositionScore += 4;
+  }
+
+  // Rejection wick bonus
+  if (rejectionWick >= 150) {
+    pricePositionScore += 10;
+  } else if (rejectionWick >= 100) {
+    pricePositionScore += 7;
+  } else if (rejectionWick >= 50) {
+    pricePositionScore += 4;
+  }
+
+  // Pullback depth (if entry zone provided)
   let pullbackDepth = 50;
   if (entryZone && entryZone[1] > entryZone[0]) {
     const range = entryZone[1] - entryZone[0];
     if (range > 0) {
-      pullbackDepth = Math.min(100, Math.max(0, 
+      pullbackDepth = Math.min(100, Math.max(0,
         ((currentPrice - entryZone[0]) / range) * 100
       ));
     }
   }
 
-  // Calculate quality score
-  // Optimal conditions for SHORT entry:
-  // 1. RSI 5m overbought (>70) or showing bearish divergence
-  // 2. Price in upper part of entry zone (pullbackDepth > 60%)
-  // 3. 5m trend not strongly bullish (avoid chasing)
+  pricePositionScore = Math.min(20, pricePositionScore);
 
-  let qualityScore = 50;
-  let signal: 'wait' | 'ready' | 'enter_now' = 'ready';
-  let reason = '';
+  // ==================== CALCULATE TOTAL SCORE ====================
+  const totalScore = candlePatternsScore + indicatorsScore + volumeScore + pricePositionScore;
 
-  // RSI contribution
-  if (rsiValue > 75) {
-    qualityScore += 20;
-    reason = '5m RSI overbought';
-  } else if (rsiValue > 65) {
-    qualityScore += 10;
-    reason = '5m RSI elevated';
-  } else if (rsiValue < 40) {
-    qualityScore -= 15;
-    reason = '5m RSI too low for short';
-  }
-
-  // Divergence contribution
-  if (microDiv === 'bearish') {
-    qualityScore += 15;
-    reason += reason ? ', bearish micro-div' : 'Bearish micro-divergence';
-  }
-
-  // Pullback depth contribution
-  if (pullbackDepth > 70) {
-    qualityScore += 15;
-    reason += ', good pullback';
-  } else if (pullbackDepth < 30) {
-    qualityScore -= 10;
-    reason += ', deep in zone';
-  }
-
-  // Trend context
-  if (trend5m === 'bearish') {
-    qualityScore += 10;
-    reason += ', 5m bearish';
-  } else if (trend5m === 'bullish') {
-    qualityScore -= 10;
-    reason += ', 5m bullish (caution)';
-  }
-
-  // Determine quality and signal
-  qualityScore = Math.min(100, Math.max(0, qualityScore));
-
+  // ==================== DETERMINE SIGNAL ====================
   let quality: 'optimal' | 'good' | 'early' | 'late';
-  if (qualityScore >= 80) {
+  let signal: 'wait' | 'ready' | 'enter_now';
+  let recommendation = '';
+  let waitTime: string | undefined;
+
+  // Bullish pattern warning reduces quality
+  const adjustedScore = hasBullishWarning ? totalScore - 15 : totalScore;
+
+  if (adjustedScore >= 75 && bearishPatterns.hasHighReliability) {
     quality = 'optimal';
     signal = 'enter_now';
-  } else if (qualityScore >= 60) {
+    recommendation = 'Отличный момент для входа — надёжный паттерн подтверждён';
+  } else if (adjustedScore >= 70) {
+    quality = 'optimal';
+    signal = 'enter_now';
+    recommendation = 'Оптимальный момент для входа';
+  } else if (adjustedScore >= 55) {
     quality = 'good';
     signal = 'ready';
-  } else if (qualityScore >= 40) {
+    recommendation = 'Хороший момент, можно входить';
+  } else if (adjustedScore >= 40) {
     quality = 'early';
     signal = 'wait';
+    recommendation = 'Рановато, подождите подтверждения';
+    waitTime = '5-15 мин';
   } else {
     quality = 'late';
     signal = 'wait';
+    recommendation = 'Неблагоприятный момент — подождите';
+    waitTime = '15-30 мин';
   }
+
+  // Additional warnings
+  if (rsiSignal === 'oversold') {
+    recommendation += ' (RSI перепродан)';
+  }
+  if (hasBullishWarning) {
+    recommendation = '⚠️ ' + recommendation + ' — есть бычьи паттерны';
+  }
+
+  // Build breakdown
+  const breakdown: EntryTimingBreakdown = {
+    candlePatterns: {
+      score: candlePatternsScore,
+      maxScore: 20,
+      detected: bearishPatterns.patterns.map(p => ({
+        name: p.name,
+        nameRu: p.nameRu,
+        reliability: p.reliability,
+        score: p.score,
+      })),
+      bullishWarning: bullishPatterns.patterns.map(p => ({
+        name: p.name,
+        nameRu: p.nameRu,
+        reliability: p.reliability,
+        score: p.score,
+      })),
+      summary: bearishPatterns.summary,
+    },
+    indicators: {
+      score: Math.min(35, indicatorsScore),
+      maxScore: 35,
+      rsi5m: {
+        value: Math.round(rsiValue * 10) / 10,
+        score: Math.max(0, rsiScore),
+        signal: rsiSignal,
+      },
+      stochRsi: {
+        k: Math.round(stochRsi.k),
+        d: Math.round(stochRsi.d),
+        cross: stochCross,
+        score: Math.max(0, stochRsiScore),
+      },
+      macd: {
+        trend: macd5m.trend,
+        histogramDeclining,
+        score: macdScore,
+      },
+      divergence: {
+        type: divergence5m.type,
+        score: divScore,
+      },
+    },
+    volume: {
+      score: volumeScore,
+      maxScore: 25,
+      currentVsAvg: Math.round(volumeRatio * 100) / 100,
+      sellingPressure: Math.round(sellingPressure),
+      spike: isVolumeSpike,
+    },
+    pricePosition: {
+      score: pricePositionScore,
+      maxScore: 20,
+      atResistance,
+      resistanceStrength,
+      pullbackDepth: Math.round(pullbackDepth),
+      rejectionWick,
+    },
+  };
 
   return {
     quality,
-    score: qualityScore,
-    rsi5m: Math.round(rsiValue * 10) / 10,
-    divergence5m: microDiv,
-    pullbackDepth: Math.round(pullbackDepth),
+    score: Math.min(100, Math.max(0, Math.round(totalScore))),
     signal,
-    reason: reason.trim() || 'Standard entry conditions',
+    breakdown,
+    recommendation,
+    waitTime,
+    reason: `${bearishPatterns.summary || 'Нет паттернов'} | RSI: ${Math.round(rsiValue)} | Vol: ${(volumeRatio * 100).toFixed(0)}%`,
   };
 }
 

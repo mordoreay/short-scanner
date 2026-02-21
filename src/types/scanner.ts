@@ -135,15 +135,71 @@ export interface MultiTFAlignment {
   };
 }
 
-// Entry Timing Indicator (based on 5m + 15m - does NOT affect signal)
+// Entry Timing Indicator v2.0 (based on 5m candles - does NOT affect signal)
+export interface CandlePatternInfo {
+  name: string;
+  nameRu: string;
+  reliability: 'high' | 'medium' | 'low';
+  score: number;
+}
+
+export interface EntryTimingBreakdown {
+  candlePatterns: {
+    score: number;           // 0-20
+    maxScore: 20;
+    detected: CandlePatternInfo[];
+    bullishWarning: CandlePatternInfo[];  // Bullish patterns for caution
+    summary: string;
+  };
+  indicators: {
+    score: number;           // 0-35
+    maxScore: 35;
+    rsi5m: {
+      value: number;
+      score: number;
+      signal: 'overbought' | 'elevated' | 'neutral' | 'oversold';
+    };
+    stochRsi: {
+      k: number;
+      d: number;
+      cross: 'bearish' | 'bullish' | 'none';
+      score: number;
+    };
+    macd: {
+      trend: 'bearish' | 'bullish' | 'neutral';
+      histogramDeclining: boolean;
+      score: number;
+    };
+    divergence: {
+      type: 'bullish' | 'bearish' | 'none';
+      score: number;
+    };
+  };
+  volume: {
+    score: number;           // 0-25
+    maxScore: 25;
+    currentVsAvg: number;    // e.g., 1.5 = 150% of average
+    sellingPressure: number; // % of sell volume (0-100)
+    spike: boolean;
+  };
+  pricePosition: {
+    score: number;           // 0-20
+    maxScore: 20;
+    atResistance: boolean;
+    resistanceStrength: 'strong' | 'moderate' | 'weak' | 'none';
+    pullbackDepth: number;   // 0-100%
+    rejectionWick: number;   // Wick size as % of body
+  };
+}
+
 export interface EntryTimingIndicator {
   quality: 'optimal' | 'good' | 'early' | 'late';
   score: number;           // 0-100
-  rsi5m: number;           // RSI on 5m
-  divergence5m: 'bullish' | 'bearish' | 'none';  // Micro divergence on 5m
-  pullbackDepth: number;   // How deep into entry zone (0-100%)
   signal: 'wait' | 'ready' | 'enter_now';
-  reason: string;          // Explanation
+  breakdown: EntryTimingBreakdown;
+  recommendation: string;
+  waitTime?: string;       // "5-10 min" if wait signal
+  reason: string;          // Legacy: short explanation
 }
 
 export interface ATRIndicator {

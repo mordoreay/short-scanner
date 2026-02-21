@@ -184,7 +184,7 @@ function determineTradingStyle(
   }
 
   // 7. 5m RSI influence
-  if (entry.rsi5m > 80) {
+  if (entry.breakdown?.indicators?.rsi5m?.value > 80) {
     scalpingScore += 1; // Extreme overbought = quick reversal
   }
 

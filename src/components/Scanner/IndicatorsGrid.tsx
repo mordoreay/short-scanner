@@ -1,6 +1,6 @@
 'use client';
 
-import { Indicators, TranslationKeys } from '@/types/scanner';
+import { Indicators, TranslationKeys, EntryTimingIndicator } from '@/types/scanner';
 import {
   Tooltip,
   TooltipContent,
@@ -37,6 +37,79 @@ const getShortColor = (isGood: boolean | null) => {
 const safeToFixed = (value: number | null | undefined, decimals: number = 0): string => {
   if (value === null || value === undefined || isNaN(value)) return '—';
   return value.toFixed(decimals);
+};
+
+// Build Entry Timing tooltip v2.0
+const buildEntryTimingTooltip = (entry: EntryTimingIndicator | undefined, t: TranslationKeys): string => {
+  if (!entry) return 'No data';
+
+  const lines: string[] = [];
+  const bd = entry.breakdown;
+
+  // Header
+  lines.push(`⏱️ Entry Timing v2.0 (${entry.score}/100)`);
+  lines.push(`Quality: ${entry.quality}`);
+  lines.push('');
+
+  // Candle Patterns
+  if (bd?.candlePatterns) {
+    const cp = bd.candlePatterns;
+    lines.push(`🕯️ Candle Patterns (${cp.score}/${cp.maxScore})`);
+    if (cp.detected.length > 0) {
+      cp.detected.forEach(p => {
+        const icon = p.reliability === 'high' ? '⭐' : p.reliability === 'medium' ? '◆' : '○';
+        lines.push(`  ${icon} ${p.nameRu} (+${p.score})`);
+      });
+    } else {
+      lines.push('  Нет паттернов');
+    }
+    if (cp.bullishWarning.length > 0) {
+      lines.push('  ⚠️ Бычьи паттерны:');
+      cp.bullishWarning.forEach(p => lines.push(`    - ${p.nameRu}`));
+    }
+    lines.push('');
+  }
+
+  // Indicators
+  if (bd?.indicators) {
+    const ind = bd.indicators;
+    lines.push(`📊 Indicators (${ind.score}/${ind.maxScore})`);
+    lines.push(`  RSI 5m: ${safeToFixed(ind.rsi5m.value, 1)} (${ind.rsi5m.signal}) +${ind.rsi5m.score}`);
+    lines.push(`  StochRSI: K=${ind.stochRsi.k} D=${ind.stochRsi.d} ${ind.stochRsi.cross !== 'none' ? ind.stochRsi.cross : ''} +${ind.stochRsi.score}`);
+    lines.push(`  MACD: ${ind.macd.trend} ${ind.macd.histogramDeclining ? '↓' : ''} +${ind.macd.score}`);
+    if (ind.divergence.type !== 'none') {
+      lines.push(`  Divergence: ${ind.divergence.type} +${ind.divergence.score}`);
+    }
+    lines.push('');
+  }
+
+  // Volume
+  if (bd?.volume) {
+    const vol = bd.volume;
+    lines.push(`📦 Volume (${vol.score}/${vol.maxScore})`);
+    lines.push(`  vs Avg: ${(vol.currentVsAvg * 100).toFixed(0)}%${vol.spike ? ' (spike!)' : ''}`);
+    lines.push(`  Sell pressure: ${vol.sellingPressure}%`);
+    lines.push('');
+  }
+
+  // Price Position
+  if (bd?.pricePosition) {
+    const pp = bd.pricePosition;
+    lines.push(`📍 Price Position (${pp.score}/${pp.maxScore})`);
+    lines.push(`  At resistance: ${pp.atResistance ? `Yes (${pp.resistanceStrength})` : 'No'}`);
+    if (pp.rejectionWick > 0) {
+      lines.push(`  Rejection wick: ${pp.rejectionWick}%`);
+    }
+    lines.push('');
+  }
+
+  // Recommendation
+  lines.push(`💡 ${entry.recommendation}`);
+  if (entry.waitTime) {
+    lines.push(`⏳ Wait: ${entry.waitTime}`);
+  }
+
+  return lines.join('\n');
 };
 
 export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
@@ -179,7 +252,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         indicators.multiTFAlignment?.direction === 'bullish' ? false : null
       ),
     },
-    // ========== ENTRY TIMING: 5m-based ==========
+    // ========== ENTRY TIMING: 5m-based v2.0 ==========
     {
       name: 'Entry',
       value: indicators.entryTiming?.signal === 'enter_now'
@@ -187,7 +260,7 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         : indicators.entryTiming?.signal === 'ready'
           ? `${indicators.entryTiming?.score ?? 0}`
           : `WAIT`,
-      tooltip: `Entry Timing (5m-based, NO impact on signal):\n5m RSI: ${safeToFixed(indicators.entryTiming?.rsi5m, 1)}\nQuality: ${indicators.entryTiming?.quality || 'N/A'}\nScore: ${indicators.entryTiming?.score ?? 0}/100\nMicro-div: ${indicators.entryTiming?.divergence5m || 'none'}\n\n${indicators.entryTiming?.reason || ''}\n\n${indicators.entryTiming?.signal === 'enter_now' ? t.optimalEntry : indicators.entryTiming?.signal === 'ready' ? t.goodEntry : t.waitEntry}`,
+      tooltip: buildEntryTimingTooltip(indicators.entryTiming, t),
       color: indicators.entryTiming?.signal === 'enter_now' 
         ? 'text-green-400 font-bold' 
         : indicators.entryTiming?.signal === 'ready' 
