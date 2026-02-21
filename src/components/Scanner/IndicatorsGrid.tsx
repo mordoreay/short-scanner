@@ -252,20 +252,37 @@ export function IndicatorsGrid({ indicators, t }: IndicatorsGridProps) {
         indicators.multiTFAlignment?.direction === 'bullish' ? false : null
       ),
     },
-    // ========== ENTRY TIMING: 5m-based v2.0 ==========
+    // ========== ENTRY TIMING: 5m-based v2.0 with badge ==========
     {
       name: 'Entry',
-      value: indicators.entryTiming?.signal === 'enter_now'
-        ? `NOW ${GOOD}`
-        : indicators.entryTiming?.signal === 'ready'
-          ? `${indicators.entryTiming?.score ?? 0}`
-          : `WAIT`,
+      value: (() => {
+        const et = indicators.entryTiming;
+        if (!et) return NEUTRAL;
+        
+        const score = et.score ?? 0;
+        const signal = et.signal;
+        const waitTime = et.waitTime;
+        
+        // Color indicator based on score
+        const colorIcon = score >= 70 ? '🟢' : score >= 55 ? '🟡' : score >= 40 ? '🟠' : '🔴';
+        
+        // Build display value
+        if (signal === 'enter_now') {
+          return `${colorIcon} ${score} NOW`;
+        } else if (signal === 'ready') {
+          return `${colorIcon} ${score} READY`;
+        } else {
+          return `${colorIcon} ${score} WAIT${waitTime ? ` ${waitTime}` : ''}`;
+        }
+      })(),
       tooltip: buildEntryTimingTooltip(indicators.entryTiming, t),
-      color: indicators.entryTiming?.signal === 'enter_now' 
-        ? 'text-green-400 font-bold' 
-        : indicators.entryTiming?.signal === 'ready' 
-          ? 'text-yellow-400' 
-          : 'text-muted-foreground',
+      color: (() => {
+        const score = indicators.entryTiming?.score ?? 0;
+        if (score >= 70) return 'text-green-400 font-semibold';
+        if (score >= 55) return 'text-yellow-400 font-semibold';
+        if (score >= 40) return 'text-orange-400';
+        return 'text-muted-foreground';
+      })(),
     },
 
     // ========== POSITION INDICATORS: Value + Status ==========
