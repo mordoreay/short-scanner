@@ -1,24 +1,25 @@
-# 📉 SHORT Scanner v3.3
+# SHORT Scanner v3.4
 
-**Professional cryptocurrency SHORT setup scanner with Multi-TF analysis, Perpetual futures support, and Smart Money tracking.**
+**Professional cryptocurrency SHORT setup scanner with Multi-TF analysis, Perpetual futures support, Smart Money tracking, and Candlestick Pattern detection.**
 
-![Version](https://img.shields.io/badge/version-3.3-blue)
-![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![Version](https://img.shields.io/badge/version-3.4-blue)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 
 ---
 
 ## 🎯 Overview
 
-SHORT Scanner automatically detects potential SHORT trading opportunities on cryptocurrency perpetual futures markets. It analyzes price action, momentum indicators, market sentiment, and smart money positioning to identify overbought conditions suitable for short positions.
+SHORT Scanner automatically detects potential SHORT trading opportunities on cryptocurrency perpetual futures markets. It analyzes price action, momentum indicators, market sentiment, smart money positioning, and candlestick patterns to identify overbought conditions suitable for short positions.
 
 ### Key Features
 
 | Feature | Description |
 |---------|-------------|
 | **Multi-TF Analysis** | 5 timeframes pool: 5m, 15m, 1h, 2h, 4h with weighted scoring |
+| **Entry Timing v2.0** | Candlestick patterns + 5m indicators + volume analysis |
 | **10 Setup Types** | Divergence, Fake Pump, Structure Break, Double Top, etc. |
-| **SHORT Score v3.2** | 0-100 scoring with Sentiment category |
+| **SHORT Score v3.3** | 0-100 scoring with Sentiment category |
 | **Smart Money Tracking** | Long/Short Ratio + Top Traders positioning |
 | **Order Flow Analysis** | Order Book Imbalance + Liquidation Heatmap |
 | **Perpetual Data** | Funding Rate + History + Trend, Open Interest |
@@ -27,6 +28,56 @@ SHORT Scanner automatically detects potential SHORT trading opportunities on cry
 | **Trade Levels** | Auto-calculated Entry Zone, Stop Loss, Take Profit, R:R ratio |
 | **Multi-Language** | Russian 🇷🇺 and English 🇺🇸 support |
 | **Auto TIER Detection** | Score-based volatility classification (no hardcoded lists!) |
+
+---
+
+## ⏱️ Entry Timing v2.0 (NEW!)
+
+**Информационный индикатор тайминга входа — не влияет на основной Score!**
+
+### Scoring Breakdown (0-100)
+
+```
+Entry Timing Score = Candle Patterns + Indicators 5m + Volume + Price Position
+```
+
+| Category | Max Score | Factors |
+|----------|-----------|---------|
+| **Candle Patterns** | 20 | Bearish Engulfing, Shooting Star, Evening Star, etc. |
+| **Indicators 5m** | 35 | RSI, StochRSI, MACD, Micro-divergence |
+| **Volume** | 25 | Volume spike, Selling pressure |
+| **Price Position** | 20 | At resistance, Rejection wick |
+
+### Candlestick Patterns Detected
+
+| Pattern | Reliability | Score |
+|---------|-------------|-------|
+| **Bearish Engulfing** | ⭐⭐⭐ High | +15 |
+| **Shooting Star** | ⭐⭐⭐ High | +12 |
+| **Evening Star** | ⭐⭐⭐ High | +14 |
+| **Three Black Crows** | ⭐⭐⭐ High | +12 |
+| **Dark Cloud Cover** | ⭐⭐ Medium | +10 |
+| **Upper Wick Rejection** | ⭐⭐ Medium | +5-8 |
+| **Gravestone Doji** | ⭐⭐ Medium | +8 |
+| **Bearish Harami** | ⭐ Low | +6 |
+| **Tweezer Top** | ⭐ Low | +6 |
+
+### UI Display
+
+```
+Entry: 🟢 78 NOW        → Score ≥ 70, optimal entry
+Entry: 🟡 62 READY      → Score ≥ 55, good entry
+Entry: 🟠 45 WAIT 5-15m → Score ≥ 40, wait for confirmation
+Entry: 🔴 30 WAIT 15-30m → Score < 40, unfavorable
+```
+
+### Signal Interpretation
+
+| Signal | Meaning |
+|--------|---------|
+| **NOW** | Optimal entry - high reliability pattern confirmed |
+| **READY** | Good moment - can enter |
+| **WAIT** | Early or late - wait for confirmation |
 
 ---
 
@@ -67,27 +118,6 @@ Score = Price Factor + ATR Factor + Price Change Factor + Age Factor + Volume Fa
 | 1.5-3.5 | **TIER 2** | Mid Caps (moderate) | DOGE, WLD, ARKM, PENDLE |
 | 3.5+ | **TIER 3** | Memecoins (volatile) | PEPE, WIF, BONK, TAKE |
 
-### Factor Weights
-
-| Factor | TIER 1 | TIER 2 | TIER 3 |
-|--------|--------|--------|--------|
-| **Price** | ≥$10 (+0) | $0.5-$10 (+0.5) | <$0.01 (+1.5-3) |
-| **ATR Volatility** | ≤5% (+0) | 5-8% (+1) | >12% (+2.5) |
-| **24h Price Change** | ≤10% (+0) | 10-25% (+0.5) | >50% (+1.5) |
-| **Coin Age** | >2 weeks (+0) | <2 weeks (+0.5) | <1 day (+2) |
-| **Volume Spike** | Normal (+0) | 5-10x (+0.5) | >10x (+1) |
-
-### Real-World Examples
-
-| Coin | Price | ATR | 24h Change | Score | TIER |
-|------|-------|-----|------------|-------|------|
-| SOL | $150 | 4% | 8% | 0.5 | 1 |
-| SNX | $0.35 | 4% | 16% | 2.0 | 2 |
-| PEPE | $0.00001 | 15% | 50% | 7.0 | 3 |
-| TAKE | $0.0002 | 18% | 60% | 7.0 | 3 |
-
-**No more override lists!** New coins are automatically classified correctly.
-
 ### TIER-Specific Settings
 
 | Setting | TIER 1 | TIER 2 | TIER 3 |
@@ -99,7 +129,7 @@ Score = Price Factor + ATR Factor + Price Change Factor + Age Factor + Volume Fa
 
 ---
 
-## 🔧 SHORT Score v3.2 Breakdown
+## 🔧 SHORT Score v3.3 Breakdown
 
 ```
 Score 0-100 = Momentum + Price Action + Sentiment + Perpetual + Trend Alignment + Divergence
@@ -127,19 +157,6 @@ Score 0-100 = Momentum + Price Action + Sentiment + Perpetual + Trend Alignment 
 | Smart Money Long (>60%) | — | -10 |
 | RSI Oversold (<25) | — | -10 |
 | Extreme Funding (Squeeze Risk) | — | -8 |
-
-### ⭐ Data Availability Checks
-
-**Important:** Score is only affected when data is available!
-
-| Indicator | No Data Behavior |
-|-----------|------------------|
-| Funding Rate | No impact on score |
-| Open Interest | No impact on score |
-| Order Book | No impact on score |
-| Liquidation Heatmap | No impact on score |
-
-UI shows "No data" with muted color when data is missing.
 
 ---
 
@@ -185,16 +202,16 @@ Open [http://localhost:3000](http://localhost:3000)
 | 🟡 **Wait** | Score ≥ 30 - Needs confirmation |
 | 🔴 **Skip** | Score < 30 - Not recommended |
 
-### Trade Levels v3.0
+### Trade Levels v4.0
 
 | Level | Calculation |
 |-------|-------------|
 | **Entry Zone** | Setup-dependent (divergence, fake pump, rejection, etc.) |
 | **Stop Loss** | Liquidation clusters → Order book walls → Structure levels → Min 2 ATR |
-| **Take Profit 1** | ATR-based (1.8x-2.5x depending on TIER) |
-| **Take Profit 2** | ATR-based (3x-4x depending on TIER) |
-| **Breakeven** | TIER-adaptive trigger (1.0R-1.5R) |
-| **R:R Ratio** | Minimum 1.5 |
+| **Take Profit 1** | ATR-based (1.8x-2.5x depending on TIER), min 2R |
+| **Take Profit 2** | ATR-based (3x-4x depending on TIER), min 3R |
+| **Breakeven** | Adaptive trigger based on ATR% volatility (0.75R-1.5R) |
+| **R:R Ratio** | TP1 ≥ 2R, TP2 ≥ 3R |
 
 ### Indicators Displayed
 
@@ -205,6 +222,7 @@ Open [http://localhost:3000](http://localhost:3000)
 | **Volatility** | Bollinger Bands, ATR |
 | **Volume** | OBV, Fake Pump Detection |
 | **Position** | VWAP Deviation |
+| **Entry Timing** | Candlestick Patterns, 5m RSI/StochRSI/MACD |
 | **Perpetual** | Funding Rate + Trend + History, Open Interest |
 | **Sentiment** | L/S Ratio, Top Traders |
 | **Order Flow** | Order Book Imbalance, Liquidation Heatmap |
@@ -218,8 +236,6 @@ Open [http://localhost:3000](http://localhost:3000)
 | **1h** | 20% | Main analysis timeframe |
 | **2h** | 30% | Trend bridge |
 | **4h** | 40% | Structure trend (highest weight) |
-
-**Note:** 5m is excluded from scoring to avoid noise, but used for Entry Timing indicator.
 
 ---
 
@@ -236,7 +252,7 @@ Open [http://localhost:3000](http://localhost:3000)
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Next.js 15** - App Router
+- **Next.js 16** - App Router
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Styling
 - **shadcn/ui** - UI components
@@ -245,6 +261,7 @@ Open [http://localhost:3000](http://localhost:3000)
 ### Backend
 - **Next.js API Routes** - Server endpoints
 - **Custom Indicators** - RSI, MACD, BB, EMA, OBV, ADX, StochRSI
+- **Candlestick Patterns** - 10 bearish patterns detection
 - **Multi-TF Engine** - Weighted timeframe analysis
 - **Score-Based TIER** - Automatic volatility classification
 
@@ -283,9 +300,10 @@ src/
 │   │   ├── bollinger.ts
 │   │   ├── ema.ts
 │   │   ├── obv.ts
+│   │   ├── candlePatterns.ts # NEW: Candlestick patterns
 │   │   └── ...
 │   ├── scoring/              # Score calculation
-│   │   ├── shortScore.ts     # v3.2 with data checks
+│   │   ├── shortScore.ts     # v3.3 with data checks
 │   │   ├── tierConfig.ts     # TIER configurations
 │   │   └── volatilityTier.ts # Score-based TIER detection
 │   └── i18n/                 # Translations
@@ -336,13 +354,24 @@ GET /api/scanner
         "entryZone": [95000, 96000],
         "stopLoss": 97000,
         "takeProfit1": 92000,
-        "riskReward": 1.5,
+        "takeProfit2": 90000,
+        "riskReward": 2,
+        "riskReward2": 3,
+        "breakevenTrigger": 93500,
         "indicators": {
+          "entryTiming": {
+            "score": 72,
+            "signal": "ready",
+            "breakdown": {
+              "candlePatterns": {
+                "detected": [{"name": "Bearish Engulfing", "score": 15}]
+              }
+            }
+          },
           "longShortRatio": { "longRatio": 68, "signal": "bearish" },
           "topTraders": { "shortRatio": 62, "signal": "bearish" },
           "fundingRate": { "rate": 0.0001, "trend": "decreasing" },
-          "orderBook": { "imbalancePercent": -25, "signal": "bearish" },
-          "liquidationHeatmap": { "totalLongLiquidations": 150000 }
+          "orderBook": { "imbalancePercent": -25, "signal": "bearish" }
         }
       }
     }
@@ -366,7 +395,23 @@ GET /api/scanner
 
 ## 📈 Version History
 
-### v3.3 (Current) 🚀
+### v3.4 (Current) 
+
+**Entry Timing v2.0**
+
+| Feature | Description |
+|---------|-------------|
+| **Candlestick Patterns** | 10 bearish patterns: Engulfing, Shooting Star, Evening Star, etc. |
+| **Enhanced Scoring** | 4 categories: Patterns, Indicators, Volume, Price Position |
+| **Color Badge UI** | 🟢/🟡/🟠/🔴 visual indicator with wait time |
+| **Russian Localization** | Pattern names in Russian |
+
+**Trade Levels Improvements:**
+- R:R for TP2 (riskReward2) added
+- Adaptive breakeven based on ATR% volatility
+- Structure-based Stop Loss calculation
+
+### v3.3
 
 **Score-Based TIER Detection v2.0**
 
@@ -375,12 +420,6 @@ GET /api/scanner
 | **Automatic TIER Classification** | No more hardcoded override lists! |
 | **Multi-Factor Scoring** | Price + ATR + Price Change + Age + Volume |
 | **Real-Time Adaptation** | New coins automatically classified correctly |
-| **Confidence Scoring** | Shows detection reliability (data quality based) |
-
-**UI Improvements:**
-- "Тейк 1" renamed to "Тейк-профит" in Russian UI
-- Trade levels now use ATR-based targets (TIER-adaptive)
-- Stop Loss uses liquidation clusters + order book walls
 
 ### v3.2
 
@@ -391,8 +430,6 @@ GET /api/scanner
 | **Funding Rate Check** | Only affects score when data is present |
 | **Open Interest Check** | Only affects score when data is present |
 | **Order Book UI** | Shows score impact in tooltip |
-| **Liquidation UI** | Shows score impact in tooltip |
-| **No Data Indicator** | Visual "No data" when API returns empty |
 
 ### v3.1
 
@@ -402,7 +439,6 @@ GET /api/scanner
 |---------|-------------|
 | **Order Book Imbalance** | Ask/Bid dominance analysis, wall detection |
 | **Liquidation Heatmap** | Long/Short liquidation levels tracking |
-| **Score Impact** | Order Book: ±1-4 points, Liquidations: ±3 points |
 
 ### v3.0
 
@@ -410,22 +446,10 @@ GET /api/scanner
 
 | Feature | Description |
 |---------|-------------|
-| **Sentiment Analysis** | Crowd vs Smart Money positioning via L/S Ratio & Top Traders |
+| **Sentiment Analysis** | Crowd vs Smart Money positioning |
 | **Funding Rate History** | 8-period history with trend detection |
-| **Sound Alerts** | Web Audio API notification when SHORT Score ≥ 70 |
-| **Auto-Rescan** | Automatic scanning at 1m, 2m, 5m, or 10m intervals |
-
-### v2.1
-- Recalibrated SHORT Score for gainers
-- Added price change magnitude scoring
-- Improved R:R calculation (min 1.5)
-- Multi-language support (RU/EN)
-
-### v2.0
-- Multi-TF analysis (5 timeframes)
-- Perpetual futures support
-- 10 setup types
-- 3 exchanges
+| **Sound Alerts** | Web Audio API notification |
+| **Auto-Rescan** | Automatic scanning at intervals |
 
 ---
 
